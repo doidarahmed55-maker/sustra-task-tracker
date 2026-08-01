@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SUSTRA Task Tracker</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --surface-0:#f5f4f0;--surface-1:#eeecea;--surface-2:#fff;
+  --text-primary:#1a1a18;--text-secondary:#5f5e5a;--text-muted:#888780;
+  --border:#e0deda;--border-strong:#c8c6c0;
+  --accent:#185FA5;--accent-bg:#E6F1FB;--accent-tx:#185FA5;
+  --success-bg:#E1F5EE;--success-tx:#0F6E56;
+  --danger-bg:#FCEBEB;--danger-tx:#A32D2D;
+  --warning-bg:#FAEEDA;--warning-tx:#854F0B;
+  --radius:8px;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--surface-0);color:var(--text-primary);min-height:100vh}
+.app{max-width:960px;margin:0 auto;padding:24px 16px}
+.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;padding-bottom:16px;border-bottom:0.5px solid var(--border)}
+.logo{font-size:20px;font-weight:600;letter-spacing:-0.5px}
+.logo span{color:var(--accent)}
+.tabs{display:flex;gap:4px;background:var(--surface-1);border-radius:var(--radius);padding:3px}
+.tab{padding:7px 16px;border-radius:6px;font-size:13px;cursor:pointer;border:none;background:transparent;color:var(--text-secondary);transition:all .15s;font-family:inherit}
+.tab.active{background:var(--surface-2);color:var(--text-primary);font-weight:500;border:0.5px solid var(--border)}
+.section{display:none}.section.active{display:block}
+
+/* Cards */
+.card{background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;padding:16px 20px}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
+.stat-label{font-size:12px;color:var(--text-secondary);margin-bottom:6px;display:flex;align-items:center;gap:5px}
+.stat-num{font-size:28px;font-weight:500}
+
+/* Buttons */
+.btn{padding:7px 14px;border:0.5px solid var(--border-strong);border-radius:var(--radius);background:transparent;color:var(--text-primary);font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-family:inherit;transition:background .12s}
+.btn:hover{background:var(--surface-1)}
+.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-primary:hover{background:#0f4a8a}
+.btn-sm{padding:4px 10px;font-size:12px}
+.icon-btn{width:28px;height:28px;border:0.5px solid var(--border);border-radius:var(--radius);background:transparent;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;color:var(--text-secondary);font-size:14px}
+.icon-btn:hover{background:var(--surface-1);color:var(--text-primary)}
+
+/* Forms */
+.input{width:100%;padding:7px 10px;border:0.5px solid var(--border);border-radius:var(--radius);background:var(--surface-1);color:var(--text-primary);font-size:13px;font-family:inherit}
+.input:focus{outline:none;border-color:var(--accent)}
+.select{width:100%;padding:7px 10px;border:0.5px solid var(--border);border-radius:var(--radius);background:var(--surface-1);color:var(--text-primary);font-size:13px;font-family:inherit}
+textarea.input{min-height:70px;resize:vertical}
+.form-group{margin-bottom:10px}
+.form-label{font-size:12px;color:var(--text-secondary);margin-bottom:4px;display:block}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:100}
+.modal{background:var(--surface-2);border:0.5px solid var(--border);border-radius:14px;padding:24px;width:420px;max-width:95vw;max-height:90vh;overflow-y:auto}
+.modal-title{font-size:16px;font-weight:500;margin-bottom:16px}
+.modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+
+/* Engineers */
+.eng-list{display:flex;flex-direction:column;gap:8px}
+.eng-row{background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;padding:16px 20px}
+.eng-header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:500;font-size:13px;flex-shrink:0}
+.eng-name{font-size:15px;font-weight:500}
+.eng-role{font-size:12px;color:var(--text-secondary)}
+.task-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-top:0.5px solid var(--border)}
+.task-name{font-size:13px;flex:1}
+.deadline{font-size:11px;color:var(--text-muted)}
+.badge{font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500;white-space:nowrap}
+.badge-on-track{background:var(--success-bg);color:var(--success-tx)}
+.badge-late{background:var(--danger-bg);color:var(--danger-tx)}
+.badge-done{background:var(--accent-bg);color:var(--accent-tx)}
+.badge-at-risk{background:var(--warning-bg);color:var(--warning-tx)}
+.progress-bar{height:4px;background:var(--surface-0);border-radius:2px;overflow:hidden}
+.progress-fill{height:100%;border-radius:2px}
+.toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.section-title{font-size:15px;font-weight:500}
+.empty{text-align:center;padding:48px 16px;color:var(--text-muted);font-size:14px}
+.pct{font-size:12px;color:var(--text-secondary);min-width:32px;text-align:right}
+.colors{display:flex;gap:8px;flex-wrap:wrap}
+.color-opt{width:26px;height:26px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:border-color .1s}
+.color-opt.sel{border-color:#333}
+
+/* Updates */
+.update-card{background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;padding:14px 18px;margin-bottom:8px}
+.update-header{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.update-text{font-size:13px;color:var(--text-primary);line-height:1.6}
+.note-text{font-size:12px;color:var(--text-secondary);font-style:italic;margin-top:6px;padding-top:6px;border-top:0.5px solid var(--border)}
+.today-badge{font-size:11px;padding:2px 8px;border-radius:8px;background:var(--warning-bg);color:var(--warning-tx)}
+
+/* PDF Review */
+.pdf-drop-zone{border:1.5px dashed var(--border-strong);border-radius:12px;padding:40px;text-align:center;cursor:pointer;transition:all .2s;background:var(--surface-1)}
+.pdf-drop-zone:hover,.pdf-drop-zone.drag-over{border-color:var(--accent);background:var(--accent-bg)}
+.pdf-drop-icon{font-size:32px;margin-bottom:12px;color:var(--text-muted)}
+.pdf-drop-text{font-size:14px;color:var(--text-secondary)}
+.pdf-drop-sub{font-size:12px;color:var(--text-muted);margin-top:4px}
+.review-form{margin-top:16px}
+.review-output{margin-top:20px}
+.review-section{margin-bottom:20px}
+.review-section-title{font-size:13px;font-weight:500;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;padding-bottom:6px;border-bottom:0.5px solid var(--border)}
+.review-item{display:flex;gap:10px;margin-bottom:8px;font-size:13px;line-height:1.6}
+.review-num{min-width:22px;height:22px;background:var(--accent-bg);color:var(--accent-tx);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;flex-shrink:0;margin-top:1px}
+.review-bullet{min-width:8px;height:8px;background:var(--danger-tx);border-radius:50%;flex-shrink:0;margin-top:6px}
+.review-bullet.pattern{background:var(--warning-tx)}
+.review-bullet.positive{background:var(--success-tx)}
+.loading-bar{height:3px;background:var(--accent-bg);border-radius:2px;overflow:hidden;margin-top:12px}
+.loading-fill{height:100%;background:var(--accent);border-radius:2px;animation:loading 1.5s ease-in-out infinite}
+@keyframes loading{0%{width:0;margin-right:100%}50%{width:60%;margin-right:0}100%{width:0;margin-right:0;margin-left:100%}}
+.file-info{display:flex;align-items:center;gap:10px;background:var(--surface-1);border:0.5px solid var(--border);border-radius:var(--radius);padding:10px 14px;margin-bottom:12px}
+.file-name{font-size:13px;font-weight:500;flex:1}
+.file-size{font-size:12px;color:var(--text-muted)}
+.report-header{background:var(--accent);color:#fff;border-radius:10px;padding:16px 20px;margin-bottom:16px}
+.report-title{font-size:17px;font-weight:600;margin-bottom:4px}
+.report-meta{font-size:12px;opacity:.8}
+
+.download-bar{display:flex;gap:8px;margin-top:16px;padding-top:14px;border-top:0.5px solid var(--border)}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div class="logo">SUSTRA <span>Task</span></div>
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('dash')">📊 Dashboard</button>
+      <button class="tab" onclick="switchTab('engineers')">👥 الفريق</button>
+      <button class="tab" onclick="switchTab('updates')">🕐 Updates</button>
+      <button class="tab" onclick="switchTab('review')">📄 PDF Review</button>
+    </div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="sec-dash" class="section active">
+    <div class="grid-4" id="stat-cards"></div>
+    <div class="eng-list" id="dash-list"></div>
+  </div>
+
+  <!-- ENGINEERS -->
+  <div id="sec-engineers" class="section">
+    <div class="toolbar">
+      <span class="section-title">الفريق</span>
+      <button class="btn btn-primary" onclick="openModal('eng')">+ مهندس جديد</button>
+    </div>
+    <div class="eng-list" id="eng-list"></div>
+  </div>
+
+  <!-- UPDATES -->
+  <div id="sec-updates" class="section">
+    <div class="toolbar">
+      <span class="section-title">التحديثات اليومية</span>
+      <button class="btn btn-primary" onclick="openModal('update')">+ تحديث جديد</button>
+    </div>
+    <div id="updates-list"></div>
+  </div>
+
+  <!-- PDF REVIEW -->
+  <div id="sec-review" class="section">
+    <div class="toolbar">
+      <span class="section-title">PDF Review</span>
+    </div>
+
+    <div class="pdf-drop-zone" id="drop-zone" onclick="document.getElementById('pdf-input').click()"
+         ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+      <div class="pdf-drop-icon">📄</div>
+      <div class="pdf-drop-text">اسحب الـ PDF المعلّم هنا أو اضغط للاختيار</div>
+      <div class="pdf-drop-sub">الـ PDF اللي كتبت عليه ملاحظاتك</div>
+    </div>
+    <input type="file" id="pdf-input" accept="application/pdf" style="display:none" onchange="handleFile(event)">
+
+    <div id="file-preview" style="display:none;margin-top:12px"></div>
+
+    <div class="review-form card" id="review-form" style="display:none;margin-top:12px">
+      <div class="form-group">
+        <label class="form-label">المهندس صاحب الشغل</label>
+        <select class="select" id="review-eng-select"><option value="">— اختار مهندس —</option></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">سياق إضافي (اختياري)</label>
+        <textarea class="input" id="review-context" placeholder="مثلاً: المرحلة الثالثة، التركيز على الحديد والغطاء الخرساني..."></textarea>
+      </div>
+      <button class="btn btn-primary" onclick="generateReview()" id="gen-btn">✨ توليد Review Report</button>
+    </div>
+
+    <div id="review-output"></div>
+  </div>
+</div>
+
+<!-- MODALS -->
+<div id="modal-eng" class="modal-overlay" style="display:none">
+  <div class="modal">
+    <div class="modal-title" id="modal-eng-title">مهندس جديد</div>
+    <div class="form-group"><label class="form-label">الاسم</label><input class="input" id="inp-eng-name" placeholder="اسم المهندس"></div>
+    <div class="form-group"><label class="form-label">الدور / التخصص</label><input class="input" id="inp-eng-role" placeholder="مثلاً: تفصيل حديد، BIM Coordinator"></div>
+    <div class="form-group"><label class="form-label">لون</label><div class="colors" id="color-opts"></div></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('eng')">إلغاء</button>
+      <button class="btn btn-primary" id="btn-save-eng" onclick="saveEng()">إضافة</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-task" class="modal-overlay" style="display:none">
+  <div class="modal">
+    <div class="modal-title" id="modal-task-title">تاسك جديد</div>
+    <div class="form-group"><label class="form-label">اسم التاسك</label><input class="input" id="inp-task-name" placeholder="مثلاً: شوب دروينج عمود C3"></div>
+    <div class="form-group"><label class="form-label">الديدلاين</label><input class="input" type="date" id="inp-task-deadline"></div>
+    <div class="form-group"><label class="form-label">الحالة</label>
+      <select class="select" id="inp-task-status">
+        <option value="on-track">On Track</option>
+        <option value="at-risk">At Risk</option>
+        <option value="late">Late</option>
+        <option value="done">Done</option>
+      </select>
+    </div>
+    <div class="form-group"><label class="form-label">نسبة الإنجاز: <span id="pct-lbl">0%</span></label>
+      <input type="range" min="0" max="100" value="0" step="5" id="inp-task-pct" oninput="document.getElementById('pct-lbl').textContent=this.value+'%'">
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('task')">إلغاء</button>
+      <button class="btn btn-primary" id="btn-save-task" onclick="saveTask()">إضافة</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-update" class="modal-overlay" style="display:none">
+  <div class="modal">
+    <div class="modal-title">تحديث يومي</div>
+    <div class="form-group"><label class="form-label">المهندس</label><select class="select" id="inp-upd-eng" onchange="fillTasksDropdown()"></select></div>
+    <div class="form-group"><label class="form-label">التاسك المرتبط</label><select class="select" id="inp-upd-task"><option value="">— اختياري —</option></select></div>
+    <div class="form-group"><label class="form-label">وصل لفين النهارده</label><textarea class="input" id="inp-upd-text" placeholder="مثلاً: خلّص تفصيل الأعمدة من C1 لـ C8، باقي الكمرات..."></textarea></div>
+    <div class="form-group"><label class="form-label">ملاحظاتك على الشغل</label><textarea class="input" id="inp-upd-note" placeholder="مثلاً: الغطاء الخرساني غلط في 3 عناصر، يراجع..."></textarea></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('update')">إلغاء</button>
+      <button class="btn btn-primary" onclick="saveUpdate()">حفظ</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const COLORS=[
+  {bg:'#E6F1FB',tx:'#185FA5'},{bg:'#E1F5EE',tx:'#0F6E56'},
+  {bg:'#EEEDFE',tx:'#534AB7'},{bg:'#FAEEDA',tx:'#854F0B'},
+  {bg:'#FAECE7',tx:'#993C1D'},{bg:'#EAF3DE',tx:'#3B6D11'},
+];
+let selColor=0;
+let engineers=[];
+let updates=[];
+let currentEngId=null;
+let selectedPdfBase64=null;
+let selectedPdfName=null;
+
+// ---- UTILS ----
+function uid(){return Math.random().toString(36).slice(2,8)}
+function progressColor(s){return s==='done'?'#378ADD':s==='late'?'#E24B4A':s==='at-risk'?'#EF9F27':'#1D9E75'}
+const statusLabel={'on-track':'On Track','at-risk':'At Risk','late':'Late','done':'Done'};
+
+// ---- TABS ----
+function switchTab(t){
+  ['dash','engineers','updates','review'].forEach((s,i)=>{
+    document.querySelectorAll('.tab')[i].classList.toggle('active',s===t);
+    document.getElementById('sec-'+s).classList.toggle('active',s===t);
+  });
+  if(t==='dash')renderDash();
+  if(t==='engineers')renderEngineers();
+  if(t==='updates')renderUpdates();
+  if(t==='review')populateReviewEngDropdown();
+}
+
+// ---- MODALS ----
+let editEngId=null;
+let editTaskId=null;
+
+function openModal(type){
+  if(type==='eng'){
+    editEngId=null;
+    document.getElementById('modal-eng-title').textContent='مهندس جديد';
+    document.getElementById('btn-save-eng').textContent='إضافة';
+    selColor=0;initColors();
+    clearEls(['inp-eng-name','inp-eng-role']);
+  }
+  if(type==='task'){
+    editTaskId=null;
+    document.getElementById('modal-task-title').textContent='تاسك جديد';
+    document.getElementById('btn-save-task').textContent='إضافة';
+    clearEls(['inp-task-name','inp-task-deadline']);
+    document.getElementById('inp-task-status').value='on-track';
+    document.getElementById('inp-task-pct').value=0;
+    document.getElementById('pct-lbl').textContent='0%';
+  }
+  if(type==='update'){
+    const s=document.getElementById('inp-upd-eng');
+    s.innerHTML=engineers.map(e=>`<option value="${e.id}">${e.name}</option>`).join('');
+    fillTasksDropdown();
+    clearEls(['inp-upd-text','inp-upd-note']);
+  }
+  document.getElementById('modal-'+type).style.display='flex';
+}
+function closeModal(type){document.getElementById('modal-'+type).style.display='none'}
+function clearEls(ids){ids.forEach(id=>{const el=document.getElementById(id);if(el)el.value=''})}
+
+// ---- COLORS ----
+function initColors(){
+  document.getElementById('color-opts').innerHTML=COLORS.map((c,i)=>
+    `<div class="color-opt${i===selColor?' sel':''}" style="background:${c.bg};border-color:${i===selColor?c.tx:'transparent'}" onclick="pickColor(${i})"></div>`
+  ).join('');
+}
+function pickColor(i){selColor=i;initColors()}
+
+// ---- ENGINEERS ----
+function saveEng(){
+  const name=document.getElementById('inp-eng-name').value.trim();
+  if(!name)return;
+  const role=document.getElementById('inp-eng-role').value.trim();
+  if(editEngId){
+    const eng=engineers.find(e=>e.id===editEngId);
+    if(eng){eng.name=name;eng.role=role;eng.color=COLORS[selColor];}
+    editEngId=null;
+  }else{
+    engineers.push({id:uid(),name,role,color:COLORS[selColor],tasks:[]});
+  }
+  closeModal('eng');renderEngineers();renderDash();
+}
+
+function editEng(id){
+  const eng=engineers.find(e=>e.id===id);
+  if(!eng)return;
+  editEngId=id;
+  document.getElementById('modal-eng-title').textContent='تعديل بيانات المهندس';
+  document.getElementById('btn-save-eng').textContent='حفظ التعديل';
+  document.getElementById('inp-eng-name').value=eng.name;
+  document.getElementById('inp-eng-role').value=eng.role||'';
+  selColor=COLORS.findIndex(c=>c.bg===eng.color.bg);
+  if(selColor<0)selColor=0;
+  initColors();
+  document.getElementById('modal-eng').style.display='flex';
+}
+
+function addTask(engId){currentEngId=engId;editTaskId=null;openModal('task')}
+
+function editTask(engId,taskId){
+  const eng=engineers.find(e=>e.id===engId);
+  if(!eng)return;
+  const task=eng.tasks.find(t=>t.id===taskId);
+  if(!task)return;
+  currentEngId=engId;
+  editTaskId=taskId;
+  document.getElementById('modal-task-title').textContent='تعديل التاسك';
+  document.getElementById('btn-save-task').textContent='حفظ التعديل';
+  document.getElementById('inp-task-name').value=task.name;
+  document.getElementById('inp-task-deadline').value=task.deadline||'';
+  document.getElementById('inp-task-status').value=task.status;
+  document.getElementById('inp-task-pct').value=task.pct;
+  document.getElementById('pct-lbl').textContent=task.pct+'%';
+  document.getElementById('modal-task').style.display='flex';
+}
+
+function saveTask(){
+  const name=document.getElementById('inp-task-name').value.trim();
+  if(!name)return;
+  const eng=engineers.find(e=>e.id===currentEngId);
+  if(!eng)return;
+  const taskData={name,deadline:document.getElementById('inp-task-deadline').value,status:document.getElementById('inp-task-status').value,pct:parseInt(document.getElementById('inp-task-pct').value)};
+  if(editTaskId){
+    const t=eng.tasks.find(t=>t.id===editTaskId);
+    if(t)Object.assign(t,taskData);
+    editTaskId=null;
+  }else{
+    eng.tasks.push({id:uid(),...taskData});
+  }
+  closeModal('task');renderEngineers();renderDash();
+}
+
+function deleteEng(id){engineers=engineers.filter(e=>e.id!==id);renderEngineers();renderDash()}
+function deleteTask(eId,tId){const e=engineers.find(x=>x.id===eId);if(e)e.tasks=e.tasks.filter(t=>t.id!==tId);renderEngineers();renderDash()}
+
+function fillTasksDropdown(){
+  const engId=document.getElementById('inp-upd-eng').value;
+  const eng=engineers.find(e=>e.id===engId);
+  const sel=document.getElementById('inp-upd-task');
+  sel.innerHTML='<option value="">— اختياري —</option>'+(eng?eng.tasks.filter(t=>t.status!=='done').map(t=>`<option value="${t.id}">${t.name}</option>`).join(''):'');
+}
+
+function renderEngineers(){
+  const el=document.getElementById('eng-list');
+  if(!engineers.length){el.innerHTML='<div class="empty">لسه مفيش مهندسين — اضغط "مهندس جديد"</div>';return}
+  el.innerHTML=engineers.map(eng=>`
+    <div class="eng-row">
+      <div class="eng-header">
+        <div class="avatar" style="background:${eng.color.bg};color:${eng.color.tx}">${eng.name.slice(0,2)}</div>
+        <div style="flex:1"><div class="eng-name">${eng.name}</div><div class="eng-role">${eng.role||'—'}</div></div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-sm" onclick="addTask('${eng.id}')">+ تاسك</button>
+          <button class="icon-btn" title="تعديل بيانات المهندس" onclick="editEng('${eng.id}')">✏️</button>
+          <button class="icon-btn" title="حذف" onclick="deleteEng('${eng.id}')">✕</button>
+        </div>
+      </div>
+      ${eng.tasks.length?eng.tasks.map(t=>`
+        <div class="task-row">
+          <div style="flex:1">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+              <span class="task-name">${t.name}</span>
+              <span class="badge badge-${t.status}">${statusLabel[t.status]}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div class="progress-bar" style="flex:1"><div class="progress-fill" style="width:${t.pct}%;background:${progressColor(t.status)}"></div></div>
+              <span class="pct">${t.pct}%</span>
+              <span class="deadline">${t.deadline||''}</span>
+              <button class="icon-btn" title="تعديل التاسك" onclick="editTask('${eng.id}','${t.id}')">✏️</button>
+              <button class="icon-btn" title="حذف" onclick="deleteTask('${eng.id}','${t.id}')">✕</button>
+            </div>
+          </div>
+        </div>`).join(''):'<div style="font-size:13px;color:var(--text-muted);padding-top:8px">لسه مفيش تاسكات</div>'}
+    </div>`).join('');
+}
+
+// ---- UPDATES ----
+function saveUpdate(){
+  const engId=document.getElementById('inp-upd-eng').value;
+  const text=document.getElementById('inp-upd-text').value.trim();
+  if(!text)return;
+  const eng=engineers.find(e=>e.id===engId);
+  const taskId=document.getElementById('inp-upd-task').value;
+  const task=eng&&taskId?eng.tasks.find(t=>t.id===taskId):null;
+  updates.unshift({
+    id:uid(),engId,engName:eng?.name||'',color:eng?.color||COLORS[0],
+    taskName:task?task.name:'',text,
+    note:document.getElementById('inp-upd-note').value.trim(),
+    date:new Date().toLocaleDateString('ar-EG',{day:'numeric',month:'long'})
+  });
+  closeModal('update');renderUpdates();
+}
+function renderUpdates(){
+  const el=document.getElementById('updates-list');
+  if(!updates.length){el.innerHTML='<div class="empty">لسه مفيش تحديثات</div>';return}
+  el.innerHTML=updates.map((u,i)=>`
+    <div class="update-card">
+      <div class="update-header">
+        <div class="avatar" style="width:30px;height:30px;font-size:12px;background:${u.color.bg};color:${u.color.tx}">${u.engName.slice(0,2)}</div>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:500">${u.engName}</div>
+          ${u.taskName?`<div style="font-size:11px;color:var(--accent)">📋 ${u.taskName}</div>`:''}
+        </div>
+        ${i===0?'<span class="today-badge">اليوم</span>':''}
+        <span style="font-size:11px;color:var(--text-muted)">${u.date}</span>
+        <button class="icon-btn" onclick="_spliceUpdate(${i})">✕</button>
+      </div>
+      <div class="update-text">${u.text}</div>
+      ${u.note?`<div class="note-text">💬 ملاحظة: ${u.note}</div>`:''}
+    </div>`).join('');
+}
+
+// ---- DASHBOARD ----
+function renderDash(){
+  const total=engineers.length;
+  const totalT=engineers.reduce((a,e)=>a+e.tasks.length,0);
+  const done=engineers.reduce((a,e)=>a+e.tasks.filter(t=>t.status==='done').length,0);
+  const late=engineers.reduce((a,e)=>a+e.tasks.filter(t=>t.status==='late').length,0);
+  document.getElementById('stat-cards').innerHTML=`
+    <div class="card"><div class="stat-label">👥 المهندسين</div><div class="stat-num">${total}</div></div>
+    <div class="card"><div class="stat-label">📋 التاسكات</div><div class="stat-num">${totalT}</div></div>
+    <div class="card"><div class="stat-label" style="color:var(--success-tx)">✅ خلصت</div><div class="stat-num" style="color:var(--success-tx)">${done}</div></div>
+    <div class="card"><div class="stat-label" style="color:var(--danger-tx)">⚠️ متأخرة</div><div class="stat-num" style="color:var(--danger-tx)">${late}</div></div>
+  `;
+  const list=document.getElementById('dash-list');
+  if(!engineers.length){list.innerHTML='<div class="empty">ابدأ بإضافة مهندسين من تاب "الفريق"</div>';return}
+  list.innerHTML='<div class="eng-list">'+engineers.map(eng=>{
+    const d=eng.tasks.filter(t=>t.status==='done').length;
+    const avg=eng.tasks.length?Math.round(eng.tasks.reduce((a,t)=>a+t.pct,0)/eng.tasks.length):0;
+    const lateT=eng.tasks.filter(t=>t.status==='late');
+    return`<div class="eng-row">
+      <div class="eng-header">
+        <div class="avatar" style="background:${eng.color.bg};color:${eng.color.tx}">${eng.name.slice(0,2)}</div>
+        <div style="flex:1"><div class="eng-name">${eng.name}</div><div class="eng-role">${eng.role||''} · ${eng.tasks.length} تاسك · ${d} خلصوا</div></div>
+        <span style="font-size:16px;font-weight:500">${avg}%</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${avg}%;background:${lateT.length?'#E24B4A':'#1D9E75'}"></div></div>
+      ${lateT.length?`<div style="font-size:12px;color:var(--danger-tx);margin-top:6px">⚠️ متأخر: ${lateT.map(t=>t.name).join(', ')}</div>`:''}
+    </div>`;
+  }).join('')+'</div>';
+}
+
+// ---- PDF REVIEW ----
+function populateReviewEngDropdown(){
+  const sel=document.getElementById('review-eng-select');
+  if(!sel)return;
+  const cur=sel.value;
+  sel.innerHTML='<option value="">— اختار مهندس —</option>'+engineers.map(e=>`<option value="${e.id}">${e.name}${e.role?' — '+e.role:''}</option>`).join('');
+  if(cur)sel.value=cur;
+}
+
+function handleDragOver(e){e.preventDefault();document.getElementById('drop-zone').classList.add('drag-over')}
+function handleDragLeave(){document.getElementById('drop-zone').classList.remove('drag-over')}
+function handleDrop(e){e.preventDefault();document.getElementById('drop-zone').classList.remove('drag-over');const f=e.dataTransfer.files[0];if(f&&f.type==='application/pdf')processPdfFile(f)}
+function handleFile(e){const f=e.target.files[0];if(f)processPdfFile(f)}
+
+function processPdfFile(file){
+  selectedPdfName=file.name;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    selectedPdfBase64=e.target.result.split(',')[1];
+    document.getElementById('file-preview').style.display='flex';
+    document.getElementById('file-preview').innerHTML=`
+      <div class="file-info">
+        <span style="font-size:20px">📄</span>
+        <span class="file-name">${file.name}</span>
+        <span class="file-size">${(file.size/1024).toFixed(0)} KB</span>
+        <button class="icon-btn" onclick="clearPdf()">✕</button>
+      </div>`;
+    populateReviewEngDropdown();
+    document.getElementById('review-form').style.display='block';
+    document.getElementById('drop-zone').style.display='none';
+  };
+  reader.readAsDataURL(file);
+}
+function clearPdf(){
+  selectedPdfBase64=null;selectedPdfName=null;
+  document.getElementById('file-preview').style.display='none';
+  document.getElementById('review-form').style.display='none';
+  document.getElementById('drop-zone').style.display='block';
+  document.getElementById('review-output').innerHTML='';
+  document.getElementById('pdf-input').value='';
+}
+
+async function generateReview(){
+  if(!selectedPdfBase64){alert('ارفع الـ PDF الأول');return}
+  const selEngId=document.getElementById('review-eng-select').value;
+  const eng=engineers.find(e=>e.id===selEngId);
+  const engName=eng?eng.name:'غير محدد';
+  const engRole=eng?eng.role:'';
+  const context=document.getElementById('review-context').value.trim();
+  const btn=document.getElementById('gen-btn');
+  btn.disabled=true;btn.textContent='⏳ بيولد التقرير...';
+
+  const outputEl=document.getElementById('review-output');
+  outputEl.innerHTML=`<div class="card" style="margin-top:16px"><div style="font-size:13px;color:var(--text-secondary)">بيقرأ الـ PDF ويحلل الملاحظات...</div><div class="loading-bar"><div class="loading-fill"></div></div></div>`;
+
+  const systemPrompt=`أنت مهندس أول متخصص في مراجعة شوب دروينجز إنشائية (Structural Shop Drawings) لمشاريع البناء في مصر. مهمتك تحليل الـ PDF المرفق وإخراج Review Report احترافي ومنظم.
+
+الـ PDF فيه ملاحظات مكتوبة على الرسم (annotations أو تعليقات) — استخرجها كلها واحدة واحدة.
+
+اكتب التقرير بالعربي الواضح، وقسّمه على النحو التالي:
+1. ملخص عام سريع (3-4 جمل)
+2. قائمة الملاحظات المستخرجة من الرسم (كل ملاحظة برقم وتفصيل)
+3. الأنماط المتكررة في الشغل (patterns) — أي نوع من الأخطاء بيتكرر؟
+4. نقاط إيجابية (لو في)
+5. التوصيات للمهندس
+
+اكتب بأسلوب مهني مباشر. لا تكرر نفسك. كن محدداً.`;
+
+  const userContent=[
+    {type:'document',source:{type:'base64',media_type:'application/pdf',data:selectedPdfBase64}},
+    {type:'text',text:`المهندس: ${engName}${engRole?' ('+engRole+')':''}
+${context?'سياق إضافي: '+context:''}
+
+حلل هذا الـ PDF المعلّم وأخرج Review Report احترافي كامل.`}
+  ];
+
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:2000,system:systemPrompt,messages:[{role:'user',content:userContent}]})
+    });
+    const data=await res.json();
+    if(data.error){throw new Error(data.error.message)}
+    const text=data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
+    renderReviewOutput(text,engName,engRole);
+  }catch(err){
+    outputEl.innerHTML=`<div class="card" style="margin-top:16px;border-color:var(--danger-tx)"><div style="color:var(--danger-tx);font-size:13px">❌ حصل خطأ: ${err.message}</div></div>`;
+  }finally{
+    btn.disabled=false;btn.textContent='✨ توليد Review Report';
+  }
+}
+
+function renderReviewOutput(text, engName, engRole){
+  const today=new Date().toLocaleDateString('ar-EG',{year:'numeric',month:'long',day:'numeric'});
+  const el=document.getElementById('review-output');
+  const escaped=text.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  // Format numbered lists and sections
+  const formatted=escaped
+    .replace(/^(\d+\.\s)/gm,'<span style="font-weight:500;color:var(--accent)">$1</span>')
+    .replace(/\n\n/g,'</p><p style="margin-bottom:8px">')
+    .replace(/\n/g,'<br>');
+  el.innerHTML=`
+    <div style="margin-top:20px">
+      <div class="report-header">
+        <div class="report-title">📋 Review Report — ${engName}</div>
+        <div class="report-meta">${engRole?engRole+' · ':''}${today} · ${selectedPdfName}</div>
+      </div>
+      <div class="card">
+        <div style="font-size:14px;line-height:1.8;color:var(--text-primary)"><p style="margin-bottom:8px">${formatted}</p></div>
+        <div class="download-bar">
+          <button class="btn btn-primary" onclick="copyReport()">📋 نسخ التقرير</button>
+          <button class="btn" onclick="clearPdf()">📄 رفع PDF جديد</button>
+        </div>
+      </div>
+    </div>`;
+  window._lastReportText=text;
+  window._lastReportMeta={engName,engRole,today,pdfName:selectedPdfName};
+}
+
+function copyReport(){
+  const m=window._lastReportMeta||{};
+  const full=`SUSTRA Review Report\nالمهندس: ${m.engName||''}\nالتاريخ: ${m.today||''}\n\n${window._lastReportText||''}`;
+  navigator.clipboard.writeText(full).then(()=>{
+    const btn=event.target;btn.textContent='✅ تم النسخ';setTimeout(()=>btn.textContent='📋 نسخ التقرير',2000);
+  });
+}
+
+// ---- SUPABASE ----
+const SB_URL='https://kjbczsboiawjfsbihlxq.supabase.co';
+const SB_KEY='sb_publishable_nZKe_bkMbWqwzAsJSqhs9w_fpwv59GL';
+
+async function sbFetch(path,method='GET',body=null){
+  const opts={method,headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=representation'}};
+  if(body)opts.body=JSON.stringify(body);
+  const res=await fetch(SB_URL+path,opts);
+  if(!res.ok){const e=await res.text();throw new Error(e);}
+  const txt=await res.text();
+  return txt?JSON.parse(txt):[];
+}
+
+function showToast(msg,err=false){
+  let t=document.getElementById('toast');
+  if(!t){t=document.createElement('div');t.id='toast';t.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:8px;font-size:13px;font-weight:500;z-index:999;transition:opacity .3s';document.body.appendChild(t);}
+  t.textContent=msg;t.style.background=err?'#A32D2D':'#0F6E56';t.style.color='#fff';t.style.opacity='1';
+  clearTimeout(t._t);t._t=setTimeout(()=>t.style.opacity='0',2500);
+}
+
+async function loadData(){
+  showToast('⏳ جاري التحميل...');
+  try{
+    const engsRaw=await sbFetch('/rest/v1/engineers?select=*&order=created_at.asc');
+    const tasksRaw=await sbFetch('/rest/v1/tasks?select=*&order=created_at.asc');
+    const updatesRaw=await sbFetch('/rest/v1/updates?select=*&order=created_at.desc');
+    engineers=engsRaw.map(e=>({...e,tasks:tasksRaw.filter(t=>t.engineer_id===e.id)}));
+    updates=updatesRaw.map(u=>{
+      const eng=engineers.find(e=>e.id===u.engineer_id);
+      return{...u,engId:u.engineer_id,engName:eng?.name||u.engineer_id,color:eng?.color||COLORS[0]};
+    });
+    showToast('✅ تم التحميل');
+  }catch(e){showToast('❌ خطأ في التحميل: '+e.message,true);}
+  renderDash();renderEngineers();renderUpdates();
+}
+
+// ---- ENGINEERS SUPABASE ----
+const _origSaveEng=saveEng;
+saveEng=async function(){
+  const name=document.getElementById('inp-eng-name').value.trim();
+  if(!name)return;
+  const role=document.getElementById('inp-eng-role').value.trim();
+  const color=COLORS[selColor];
+  try{
+    if(editEngId){
+      await sbFetch('/rest/v1/engineers?id=eq.'+editEngId,'PATCH',{name,role,color});
+      const eng=engineers.find(e=>e.id===editEngId);
+      if(eng){eng.name=name;eng.role=role;eng.color=color;}
+      editEngId=null;
+    }else{
+      const id=uid();
+      await sbFetch('/rest/v1/engineers','POST',{id,name,role,color});
+      engineers.push({id,name,role,color,tasks:[]});
+    }
+    closeModal('eng');renderEngineers();renderDash();
+    showToast('✅ تم الحفظ');
+  }catch(e){showToast('❌ '+e.message,true);}
+};
+
+const _origSaveTask=saveTask;
+saveTask=async function(){
+  const name=document.getElementById('inp-task-name').value.trim();
+  if(!name)return;
+  const eng=engineers.find(e=>e.id===currentEngId);
+  if(!eng)return;
+  const taskData={name,deadline:document.getElementById('inp-task-deadline').value,status:document.getElementById('inp-task-status').value,pct:parseInt(document.getElementById('inp-task-pct').value)};
+  try{
+    if(editTaskId){
+      await sbFetch('/rest/v1/tasks?id=eq.'+editTaskId,'PATCH',taskData);
+      const t=eng.tasks.find(t=>t.id===editTaskId);
+      if(t)Object.assign(t,taskData);
+      editTaskId=null;
+    }else{
+      const id=uid();
+      await sbFetch('/rest/v1/tasks','POST',{id,engineer_id:currentEngId,...taskData});
+      eng.tasks.push({id,...taskData});
+    }
+    closeModal('task');renderEngineers();renderDash();
+    showToast('✅ تم الحفظ');
+  }catch(e){showToast('❌ '+e.message,true);}
+};
+
+const _origDeleteEng=deleteEng;
+deleteEng=async function(id){
+  try{
+    await sbFetch('/rest/v1/engineers?id=eq.'+id,'DELETE');
+    engineers=engineers.filter(e=>e.id!==id);
+    renderEngineers();renderDash();
+    showToast('✅ تم الحذف');
+  }catch(e){showToast('❌ '+e.message,true);}
+};
+
+const _origDeleteTask=deleteTask;
+deleteTask=async function(eId,tId){
+  try{
+    await sbFetch('/rest/v1/tasks?id=eq.'+tId,'DELETE');
+    const e=engineers.find(x=>x.id===eId);
+    if(e)e.tasks=e.tasks.filter(t=>t.id!==tId);
+    renderEngineers();renderDash();
+    showToast('✅ تم الحذف');
+  }catch(e){showToast('❌ '+e.message,true);}
+};
+
+const _origSaveUpdate=saveUpdate;
+saveUpdate=async function(){
+  const engId=document.getElementById('inp-upd-eng').value;
+  const text=document.getElementById('inp-upd-text').value.trim();
+  if(!text)return;
+  const eng=engineers.find(e=>e.id===engId);
+  const taskId=document.getElementById('inp-upd-task').value;
+  const task=eng&&taskId?eng.tasks.find(t=>t.id===taskId):null;
+  const date=new Date().toLocaleDateString('ar-EG',{day:'numeric',month:'long'});
+  const note=document.getElementById('inp-upd-note').value.trim();
+  const id=uid();
+  try{
+    await sbFetch('/rest/v1/updates','POST',{id,engineer_id:engId,task_id:taskId||null,task_name:task?.name||'',text,note,date});
+    updates.unshift({id,engId,engName:eng?.name||'',color:eng?.color||COLORS[0],taskName:task?.name||'',text,note,date});
+    closeModal('update');renderUpdates();
+    showToast('✅ تم الحفظ');
+  }catch(e){showToast('❌ '+e.message,true);}
+};
+
+window._spliceUpdate=async function(i){
+  const u=updates[i];
+  try{
+    await sbFetch('/rest/v1/updates?id=eq.'+u.id,'DELETE');
+    updates.splice(i,1);renderUpdates();
+    showToast('✅ تم الحذف');
+  }catch(e){showToast('❌ '+e.message,true);}
+};
+
+// ---- INIT ----
+initColors();
+loadData();
+</script>
+</body>
+</html>
