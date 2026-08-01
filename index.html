@@ -532,36 +532,15 @@ async function generateReview(){
   const outputEl=document.getElementById('review-output');
   outputEl.innerHTML=`<div class="card" style="margin-top:16px"><div style="font-size:13px;color:var(--text-secondary)">بيقرأ الـ PDF ويحلل الملاحظات...</div><div class="loading-bar"><div class="loading-fill"></div></div></div>`;
 
-  const systemPrompt=`أنت مهندس أول متخصص في مراجعة شوب دروينجز إنشائية (Structural Shop Drawings) لمشاريع البناء في مصر. مهمتك تحليل الـ PDF المرفق وإخراج Review Report احترافي ومنظم.
-
-الـ PDF فيه ملاحظات مكتوبة على الرسم (annotations أو تعليقات) — استخرجها كلها واحدة واحدة.
-
-اكتب التقرير بالعربي الواضح، وقسّمه على النحو التالي:
-1. ملخص عام سريع (3-4 جمل)
-2. قائمة الملاحظات المستخرجة من الرسم (كل ملاحظة برقم وتفصيل)
-3. الأنماط المتكررة في الشغل (patterns) — أي نوع من الأخطاء بيتكرر؟
-4. نقاط إيجابية (لو في)
-5. التوصيات للمهندس
-
-اكتب بأسلوب مهني مباشر. لا تكرر نفسك. كن محدداً.`;
-
-  const userContent=[
-    {type:'document',source:{type:'base64',media_type:'application/pdf',data:selectedPdfBase64}},
-    {type:'text',text:`المهندس: ${engName}${engRole?' ('+engRole+')':''}
-${context?'سياق إضافي: '+context:''}
-
-حلل هذا الـ PDF المعلّم وأخرج Review Report احترافي كامل.`}
-  ];
-
   try{
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
+    const res=await fetch('https://kjbczsboiawjfsbihlxq.supabase.co/functions/v1/review-pdf',{
       method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:2000,system:systemPrompt,messages:[{role:'user',content:userContent}]})
+      headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY},
+      body:JSON.stringify({pdfBase64:selectedPdfBase64,engName,engRole,context})
     });
     const data=await res.json();
-    if(data.error){throw new Error(data.error.message)}
-    const text=data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
+    if(data.error){throw new Error(data.error)}
+    const text=data.text;
     renderReviewOutput(text,engName,engRole);
   }catch(err){
     outputEl.innerHTML=`<div class="card" style="margin-top:16px;border-color:var(--danger-tx)"><div style="color:var(--danger-tx);font-size:13px">❌ حصل خطأ: ${err.message}</div></div>`;
