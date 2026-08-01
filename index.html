@@ -189,6 +189,7 @@ textarea.input{min-height:70px;resize:vertical}
     <div class="modal-title" id="modal-eng-title">مهندس جديد</div>
     <div class="form-group"><label class="form-label">الاسم</label><input class="input" id="inp-eng-name" placeholder="اسم المهندس"></div>
     <div class="form-group"><label class="form-label">الدور / التخصص</label><input class="input" id="inp-eng-role" placeholder="مثلاً: تفصيل حديد، BIM Coordinator"></div>
+    <div class="form-group"><label class="form-label">رقم الواتساب (مع كود الدولة)</label><input class="input" id="inp-eng-phone" placeholder="مثلاً: 201012345678"></div>
     <div class="form-group"><label class="form-label">لون</label><div class="colors" id="color-opts"></div></div>
     <div class="modal-footer">
       <button class="btn" onclick="closeModal('eng')">إلغاء</button>
@@ -274,7 +275,7 @@ function openModal(type){
     document.getElementById('modal-eng-title').textContent='مهندس جديد';
     document.getElementById('btn-save-eng').textContent='إضافة';
     selColor=0;initColors();
-    clearEls(['inp-eng-name','inp-eng-role']);
+    clearEls(['inp-eng-name','inp-eng-role','inp-eng-phone']);
   }
   if(type==='task'){
     editTaskId=null;
@@ -327,6 +328,7 @@ function editEng(id){
   document.getElementById('btn-save-eng').textContent='حفظ التعديل';
   document.getElementById('inp-eng-name').value=eng.name;
   document.getElementById('inp-eng-role').value=eng.role||'';
+  document.getElementById('inp-eng-phone').value=eng.phone||'';
   selColor=COLORS.findIndex(c=>c.bg===eng.color.bg);
   if(selColor<0)selColor=0;
   initColors();
@@ -371,6 +373,17 @@ function saveTask(){
 function deleteEng(id){engineers=engineers.filter(e=>e.id!==id);renderEngineers();renderDash()}
 function deleteTask(eId,tId){const e=engineers.find(x=>x.id===eId);if(e)e.tasks=e.tasks.filter(t=>t.id!==tId);renderEngineers();renderDash()}
 
+function sendWhatsApp(engId){
+  const eng=engineers.find(e=>e.id===engId);
+  if(!eng||!eng.phone)return;
+  const activeTasks=eng.tasks.filter(t=>t.status!=='done');
+  const taskLine=activeTasks.length
+    ? activeTasks.map(t=>t.name).join(', ')
+    : 'your current tasks';
+  const msg=`Hi ${eng.name}, please send your daily progress update for: ${taskLine}. Thanks 🙏`;
+  window.open(`https://wa.me/${eng.phone}?text=${encodeURIComponent(msg)}`,'_blank');
+}
+
 function fillTasksDropdown(){
   const engId=document.getElementById('inp-upd-eng').value;
   const eng=engineers.find(e=>e.id===engId);
@@ -387,8 +400,9 @@ function renderEngineers(){
         <div class="avatar" style="background:${eng.color.bg};color:${eng.color.tx}">${eng.name.slice(0,2)}</div>
         <div style="flex:1"><div class="eng-name">${eng.name}</div><div class="eng-role">${eng.role||'—'}</div></div>
         <div style="display:flex;gap:6px">
+          ${eng.phone?`<button class="btn btn-sm" style="background:#25D366;color:#fff;border-color:#25D366" onclick="sendWhatsApp('${eng.id}')">📱 Remind</button>`:''}
           <button class="btn btn-sm" onclick="addTask('${eng.id}')">+ تاسك</button>
-          <button class="icon-btn" title="تعديل بيانات المهندس" onclick="editEng('${eng.id}')">✏️</button>
+          <button class="icon-btn" title="تعديل" onclick="editEng('${eng.id}')">✏️</button>
           <button class="icon-btn" title="حذف" onclick="deleteEng('${eng.id}')">✕</button>
         </div>
       </div>
@@ -626,17 +640,18 @@ saveEng=async function(){
   const name=document.getElementById('inp-eng-name').value.trim();
   if(!name)return;
   const role=document.getElementById('inp-eng-role').value.trim();
+  const phone=document.getElementById('inp-eng-phone').value.trim().replace(/\D/g,'');
   const color=COLORS[selColor];
   try{
     if(editEngId){
-      await sbFetch('/rest/v1/engineers?id=eq.'+editEngId,'PATCH',{name,role,color});
+      await sbFetch('/rest/v1/engineers?id=eq.'+editEngId,'PATCH',{name,role,phone,color});
       const eng=engineers.find(e=>e.id===editEngId);
-      if(eng){eng.name=name;eng.role=role;eng.color=color;}
+      if(eng){eng.name=name;eng.role=role;eng.phone=phone;eng.color=color;}
       editEngId=null;
     }else{
       const id=uid();
-      await sbFetch('/rest/v1/engineers','POST',{id,name,role,color});
-      engineers.push({id,name,role,color,tasks:[]});
+      await sbFetch('/rest/v1/engineers','POST',{id,name,role,phone,color});
+      engineers.push({id,name,role,phone,color,tasks:[]});
     }
     closeModal('eng');renderEngineers();renderDash();
     showToast('✅ تم الحفظ');
