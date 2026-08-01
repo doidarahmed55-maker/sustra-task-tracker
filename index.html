@@ -148,6 +148,16 @@ textarea.input{min-height:70px;resize:vertical}
       <span class="section-title">التحديثات اليومية</span>
       <button class="btn btn-primary" onclick="openModal('update')">+ تحديث جديد</button>
     </div>
+    <!-- Missing updates alert -->
+    <div id="missing-alert" style="display:none;background:var(--warning-bg);border:0.5px solid var(--warning-tx);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:var(--warning-tx)"></div>
+    <!-- Filter bar -->
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <select class="select" id="filter-eng" onchange="renderUpdates()" style="flex:1;min-width:140px">
+        <option value="">كل المهندسين</option>
+      </select>
+      <input class="input" type="date" id="filter-date" onchange="renderUpdates()" style="flex:1;min-width:140px">
+      <button class="btn" onclick="clearFilters()">✕ مسح الفلتر</button>
+    </div>
     <div id="updates-list"></div>
   </div>
 
@@ -225,7 +235,11 @@ textarea.input{min-height:70px;resize:vertical}
   <div class="modal">
     <div class="modal-title">تحديث يومي</div>
     <div class="form-group"><label class="form-label">المهندس</label><select class="select" id="inp-upd-eng" onchange="fillTasksDropdown()"></select></div>
-    <div class="form-group"><label class="form-label">التاسك المرتبط</label><select class="select" id="inp-upd-task"><option value="">— اختياري —</option></select></div>
+    <div class="form-group"><label class="form-label">التاسك المرتبط</label><select class="select" id="inp-upd-task" onchange="fillCurrentPct()"><option value="">— اختياري —</option></select></div>
+    <div class="form-group" id="pct-group" style="display:none">
+      <label class="form-label">تحديث نسبة الإنجاز: <span id="upd-pct-lbl">0%</span></label>
+      <input type="range" min="0" max="100" value="0" step="5" id="inp-upd-pct" oninput="document.getElementById('upd-pct-lbl').textContent=this.value+'%'">
+    </div>
     <div class="form-group"><label class="form-label">وصل لفين النهارده</label><textarea class="input" id="inp-upd-text" placeholder="مثلاً: خلّص تفصيل الأعمدة من C1 لـ C8، باقي الكمرات..."></textarea></div>
     <div class="form-group"><label class="form-label">ملاحظاتك على الشغل</label><textarea class="input" id="inp-upd-note" placeholder="مثلاً: الغطاء الخرساني غلط في 3 عناصر، يراجع..."></textarea></div>
     <div class="modal-footer">
@@ -388,7 +402,43 @@ function fillTasksDropdown(){
   const engId=document.getElementById('inp-upd-eng').value;
   const eng=engineers.find(e=>e.id===engId);
   const sel=document.getElementById('inp-upd-task');
-  sel.innerHTML='<option value="">— اختياري —</option>'+(eng?eng.tasks.filter(t=>t.status!=='done').map(t=>`<option value="${t.id}">${t.name}</option>`).join(''):'');
+  sel.innerHTML='<option value="">— اختياري —</option>'+(eng?eng.tasks.filter(t=>t.status!=='done').map(t=>`<option value="${t.id}">${t.name} (${t.pct}%)</option>`).join(''):'');
+  document.getElementById('pct-group').style.display='none';
+}
+
+function fillCurrentPct(){
+  const engId=document.getElementById('inp-upd-eng').value;
+  const taskId=document.getElementById('inp-upd-task').value;
+  const eng=engineers.find(e=>e.id===engId);
+  const task=eng&&taskId?eng.tasks.find(t=>t.id===taskId):null;
+  const grp=document.getElementById('pct-group');
+  if(task){
+    grp.style.display='block';
+    document.getElementById('inp-upd-pct').value=task.pct;
+    document.getElementById('upd-pct-lbl').textContent=task.pct+'%';
+  }else{
+    grp.style.display='none';
+  }
+}
+
+function clearFilters(){
+  document.getElementById('filter-eng').value='';
+  document.getElementById('filter-date').value='';
+  renderUpdates();
+}
+
+function checkMissingUpdates(){
+  const alert=document.getElementById('missing-alert');
+  if(!alert)return;
+  const today=new Date().toLocaleDateString('ar-EG',{day:'numeric',month:'long'});
+  const engWithUpdate=new Set(updates.filter(u=>u.date===today).map(u=>u.engId));
+  const missing=engineers.filter(e=>e.tasks.some(t=>t.status!=='done')&&!engWithUpdate.has(e.id));
+  if(missing.length){
+    alert.style.display='block';
+    alert.innerHTML='⚠️ لسه مسلموش تحديث النهارده: <b>'+missing.map(e=>e.name).join('، ')+'</b>';
+  }else{
+    alert.style.display='none';
+  }
 }
 
 function renderEngineers(){
@@ -433,32 +483,53 @@ function saveUpdate(){
   const eng=engineers.find(e=>e.id===engId);
   const taskId=document.getElementById('inp-upd-task').value;
   const task=eng&&taskId?eng.tasks.find(t=>t.id===taskId):null;
+  const newPct=task?parseInt(document.getElementById('inp-upd-pct').value):null;
+  const isoDate=new Date().toISOString().slice(0,10);
+  const date=new Date().toLocaleDateString('ar-EG',{day:'numeric',month:'long'});
+  const note=document.getElementById('inp-upd-note').value.trim();
+  if(task&&newPct!==null){task.pct=newPct;}
   updates.unshift({
     id:uid(),engId,engName:eng?.name||'',color:eng?.color||COLORS[0],
-    taskName:task?task.name:'',text,
-    note:document.getElementById('inp-upd-note').value.trim(),
-    date:new Date().toLocaleDateString('ar-EG',{day:'numeric',month:'long'})
+    taskName:task?task.name:'',text,note,date,isoDate,newPct
   });
-  closeModal('update');renderUpdates();
+  closeModal('update');renderUpdates();renderEngineers();renderDash();
 }
 function renderUpdates(){
+  const fEng=document.getElementById('filter-eng');
+  if(fEng&&!fEng.querySelector('option[value="'+fEng.value+'"]')){
+    const cur=fEng.value;
+    fEng.innerHTML='<option value="">كل المهندسين</option>'+engineers.map(e=>`<option value="${e.id}">${e.name}</option>`).join('');
+    fEng.value=cur;
+  } else if(fEng){
+    const cur=fEng.value;
+    fEng.innerHTML='<option value="">كل المهندسين</option>'+engineers.map(e=>`<option value="${e.id}">${e.name}</option>`).join('');
+    fEng.value=cur;
+  }
+  const filterEngVal=document.getElementById('filter-eng')?.value||'';
+  const filterDate=document.getElementById('filter-date')?.value||'';
+  const filtered=updates.filter(u=>{
+    if(filterEngVal&&u.engId!==filterEngVal)return false;
+    if(filterDate&&u.isoDate&&u.isoDate!==filterDate)return false;
+    return true;
+  });
   const el=document.getElementById('updates-list');
-  if(!updates.length){el.innerHTML='<div class="empty">لسه مفيش تحديثات</div>';return}
-  el.innerHTML=updates.map((u,i)=>`
+  if(!filtered.length){el.innerHTML='<div class="empty">لسه مفيش تحديثات</div>';checkMissingUpdates();return}
+  el.innerHTML=filtered.map((u,i)=>`
     <div class="update-card">
       <div class="update-header">
         <div class="avatar" style="width:30px;height:30px;font-size:12px;background:${u.color.bg};color:${u.color.tx}">${u.engName.slice(0,2)}</div>
         <div style="flex:1">
           <div style="font-size:13px;font-weight:500">${u.engName}</div>
-          ${u.taskName?`<div style="font-size:11px;color:var(--accent)">📋 ${u.taskName}</div>`:''}
+          ${u.taskName?`<div style="font-size:11px;color:var(--accent)">📋 ${u.taskName}${u.newPct!=null?' → <b>'+u.newPct+'%</b>':''}</div>`:''}
         </div>
-        ${i===0?'<span class="today-badge">اليوم</span>':''}
+        ${i===0&&!filterEngVal&&!filterDate?'<span class="today-badge">اليوم</span>':''}
         <span style="font-size:11px;color:var(--text-muted)">${u.date}</span>
-        <button class="icon-btn" onclick="_spliceUpdate(${i})">✕</button>
+        <button class="icon-btn" onclick="_spliceUpdate(${updates.indexOf(u)})">✕</button>
       </div>
       <div class="update-text">${u.text}</div>
       ${u.note?`<div class="note-text">💬 ملاحظة: ${u.note}</div>`:''}
     </div>`).join('');
+  checkMissingUpdates();
 }
 
 // ---- DASHBOARD ----
@@ -631,7 +702,7 @@ async function loadData(){
     });
     showToast('✅ تم التحميل');
   }catch(e){showToast('❌ خطأ في التحميل: '+e.message,true);}
-  renderDash();renderEngineers();renderUpdates();
+  renderDash();renderEngineers();renderUpdates();checkMissingUpdates();
 }
 
 // ---- ENGINEERS SUPABASE ----
@@ -710,13 +781,19 @@ saveUpdate=async function(){
   const eng=engineers.find(e=>e.id===engId);
   const taskId=document.getElementById('inp-upd-task').value;
   const task=eng&&taskId?eng.tasks.find(t=>t.id===taskId):null;
+  const newPct=task?parseInt(document.getElementById('inp-upd-pct').value):null;
+  const isoDate=new Date().toISOString().slice(0,10);
   const date=new Date().toLocaleDateString('ar-EG',{day:'numeric',month:'long'});
   const note=document.getElementById('inp-upd-note').value.trim();
   const id=uid();
   try{
-    await sbFetch('/rest/v1/updates','POST',{id,engineer_id:engId,task_id:taskId||null,task_name:task?.name||'',text,note,date});
-    updates.unshift({id,engId,engName:eng?.name||'',color:eng?.color||COLORS[0],taskName:task?.name||'',text,note,date});
-    closeModal('update');renderUpdates();
+    await sbFetch('/rest/v1/updates','POST',{id,engineer_id:engId,task_id:taskId||null,task_name:task?.name||'',text,note,date,iso_date:isoDate,new_pct:newPct});
+    if(task&&newPct!==null){
+      await sbFetch('/rest/v1/tasks?id=eq.'+task.id,'PATCH',{pct:newPct});
+      task.pct=newPct;
+    }
+    updates.unshift({id,engId,engName:eng?.name||'',color:eng?.color||COLORS[0],taskName:task?.name||'',text,note,date,isoDate,newPct});
+    closeModal('update');renderUpdates();renderEngineers();renderDash();
     showToast('✅ تم الحفظ');
   }catch(e){showToast('❌ '+e.message,true);}
 };
