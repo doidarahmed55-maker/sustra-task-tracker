@@ -121,16 +121,56 @@ textarea.input{min-height:70px;resize:vertical}
     <div class="logo">SUSTRA <span>Task</span></div>
     <div class="tabs">
       <button class="tab active" onclick="switchTab('dash')">📊 Dashboard</button>
-      <button class="tab" onclick="switchTab('engineers')">👥 الفريق</button>
       <button class="tab" onclick="switchTab('updates')">🕐 Updates</button>
-
     </div>
   </div>
 
-  <!-- DASHBOARD -->
+  <!-- DASHBOARD = Engineers + Tasks + Stats -->
   <div id="sec-dash" class="section active">
+    <!-- Stats -->
     <div class="grid-4" id="stat-cards"></div>
+
+    <!-- Missing alert -->
+    <div id="missing-alert" style="display:none;background:var(--warning-bg);border:0.5px solid var(--warning-tx);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:var(--warning-tx)"></div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <span class="section-title">الفريق</span>
+      <div style="display:flex;gap:8px">
+        <button class="btn" onclick="showWeeklyReport()">📊 أسبوعي</button>
+        <button class="btn" onclick="remindAll()" style="background:#25D366;color:#fff;border-color:#25D366">📱 Remind All</button>
+        <button class="btn btn-primary" onclick="openModal('eng')">+ مهندس جديد</button>
+      </div>
+    </div>
     <div class="eng-list" id="dash-list"></div>
+  </div>
+
+  <!-- UPDATES = Archive + Search -->
+  <div id="sec-updates" class="section">
+    <div class="toolbar">
+      <span class="section-title">Updates</span>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <select class="select" id="filter-eng" onchange="renderUpdates()" style="flex:1;min-width:140px">
+        <option value="">كل المهندسين</option>
+      </select>
+      <input class="input" type="date" id="filter-date" onchange="renderUpdates()" style="flex:1;min-width:140px">
+      <input class="input" id="filter-search" placeholder="🔍 ابحث..." oninput="renderUpdates()" style="flex:1;min-width:140px">
+      <button class="btn" onclick="clearFilters()">✕ مسح</button>
+    </div>
+    <div id="updates-list"></div>
+  </div>
+
+  <!-- WEEKLY REPORT MODAL -->
+  <div id="modal-weekly" class="modal-overlay" style="display:none">
+    <div class="modal" style="width:540px;max-height:85vh;overflow-y:auto">
+      <div class="modal-title">📊 التقرير الأسبوعي — جاهز للنسخ</div>
+      <div id="weekly-report-content" style="font-family:monospace;font-size:12.5px;line-height:1.8;background:var(--surface-1);border:0.5px solid var(--border);border-radius:8px;padding:14px;white-space:pre-wrap;color:var(--text-primary);max-height:60vh;overflow-y:auto"></div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeModal('weekly')">إغلاق</button>
+        <button class="btn btn-primary" onclick="copyWeeklyReport()">📋 نسخ التقرير</button>
+      </div>
+    </div>
   </div>
 
   <!-- PROGRESS REPORT MODAL -->
@@ -145,32 +185,15 @@ textarea.input{min-height:70px;resize:vertical}
     </div>
   </div>
 
-  <!-- ENGINEERS -->
-  <div id="sec-engineers" class="section">
-    <div class="toolbar">
-      <span class="section-title">الفريق</span>
-      <button class="btn btn-primary" onclick="openModal('eng')">+ مهندس جديد</button>
+  <!-- HISTORY MODAL -->
+  <div id="modal-history" class="modal-overlay" style="display:none">
+    <div class="modal" style="width:480px;max-height:85vh;overflow-y:auto">
+      <div class="modal-title">🕐 History التاسك</div>
+      <div id="history-content"></div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeModal('history')">إغلاق</button>
+      </div>
     </div>
-    <div class="eng-list" id="eng-list"></div>
-  </div>
-
-  <!-- UPDATES -->
-  <div id="sec-updates" class="section">
-    <div class="toolbar">
-      <span class="section-title">التحديثات اليومية</span>
-      <button class="btn btn-primary" onclick="openModal('update')">+ تحديث جديد</button>
-    </div>
-    <!-- Missing updates alert -->
-    <div id="missing-alert" style="display:none;background:var(--warning-bg);border:0.5px solid var(--warning-tx);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:var(--warning-tx)"></div>
-    <!-- Filter bar -->
-    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-      <select class="select" id="filter-eng" onchange="renderUpdates()" style="flex:1;min-width:140px">
-        <option value="">كل المهندسين</option>
-      </select>
-      <input class="input" type="date" id="filter-date" onchange="renderUpdates()" style="flex:1;min-width:140px">
-      <button class="btn" onclick="clearFilters()">✕ مسح الفلتر</button>
-    </div>
-    <div id="updates-list"></div>
   </div>
 
   <!-- PDF REVIEW REMOVED -->
@@ -281,19 +304,30 @@ const statusLabel={'on-track':'On Track','at-risk':'At Risk','late':'Late','done
 
 // ---- TABS ----
 function switchTab(t){
-  ['dash','engineers','updates'].forEach((s,i)=>{
+  ['dash','updates'].forEach((s,i)=>{
     document.querySelectorAll('.tab')[i].classList.toggle('active',s===t);
     document.getElementById('sec-'+s).classList.toggle('active',s===t);
   });
   if(t==='dash')renderDash();
-  if(t==='engineers')renderEngineers();
   if(t==='updates')renderUpdates();
-
 }
 
 // ---- MODALS ----
 let editEngId=null;
 let editTaskId=null;
+
+function quickUpdate(engId, taskId){
+  // open update modal pre-filled
+  const s=document.getElementById('inp-upd-eng');
+  s.innerHTML=engineers.map(e=>`<option value="${e.id}">${e.name}</option>`).join('');
+  s.value=engId;
+  fillTasksDropdown();
+  document.getElementById('inp-upd-task').value=taskId;
+  fillCurrentPct();
+  document.getElementById('inp-upd-text').value='';
+  document.getElementById('inp-upd-note').value='';
+  document.getElementById('modal-update').style.display='flex';
+}
 
 function openModal(type){
   if(type==='eng'){
@@ -399,6 +433,69 @@ function saveTask(){
 function deleteEng(id){engineers=engineers.filter(e=>e.id!==id);renderEngineers();renderDash()}
 function deleteTask(eId,tId){const e=engineers.find(x=>x.id===eId);if(e)e.tasks=e.tasks.filter(t=>t.id!==tId);renderEngineers();renderDash()}
 
+function archiveTask(eId,tId){
+  const e=engineers.find(x=>x.id===eId);
+  const t=e?e.tasks.find(t=>t.id===tId):null;
+  if(t){t.archived=true;renderEngineers();renderDash();}
+}
+function unarchiveTask(eId,tId){
+  const e=engineers.find(x=>x.id===eId);
+  const t=e?e.tasks.find(t=>t.id===tId):null;
+  if(t){t.archived=false;renderEngineers();renderDash();}
+}
+
+let taskHistoryCache={};
+async function showTaskHistory(taskId){
+  document.getElementById('history-content').innerHTML='<div style="padding:16px;color:var(--text-muted);font-size:13px">⏳ جاري التحميل...</div>';
+  document.getElementById('modal-history').style.display='flex';
+  try{
+    const rows=await sbFetch('/rest/v1/task_history?task_id=eq.'+taskId+'&order=changed_at.desc');
+    if(!rows.length){
+      document.getElementById('history-content').innerHTML='<div style="padding:16px;color:var(--text-muted);font-size:13px">لسه مفيش تعديلات مسجلة على التاسك ده</div>';
+      return;
+    }
+    const fieldLabel={'status':'الحالة','pct':'نسبة الإنجاز','name':'الاسم','deadline':'الديدلاين'};
+    document.getElementById('history-content').innerHTML=rows.map(r=>`
+      <div style="display:flex;gap:10px;padding:8px 0;border-bottom:0.5px solid var(--border)">
+        <div style="min-width:8px;height:8px;background:var(--accent);border-radius:50%;margin-top:5px;flex-shrink:0"></div>
+        <div style="flex:1">
+          <div style="font-size:12px;color:var(--text-muted)">${new Date(r.changed_at).toLocaleDateString('ar-EG',{day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'})}</div>
+          <div style="font-size:13px;color:var(--text-primary);margin-top:2px">
+            <b>${fieldLabel[r.field]||r.field}</b>: 
+            <span style="text-decoration:line-through;color:var(--text-muted)">${r.old_value||'—'}</span>
+            → <span style="color:var(--accent)">${r.new_value||'—'}</span>
+          </div>
+        </div>
+      </div>`).join('');
+  }catch(e){
+    document.getElementById('history-content').innerHTML=`<div style="padding:16px;color:var(--danger-tx);font-size:13px">❌ ${e.message}</div>`;
+  }
+}
+
+function remindAll(){
+  const toRemind=engineers.filter(e=>e.phone&&e.tasks.some(t=>t.status!=='done'&&!t.archived));
+  if(!toRemind.length){showToast('مفيش مهندسين عندهم تاسكات شغالة أو مش عندهم رقم');return;}
+  let i=0;
+  function sendNext(){
+    if(i>=toRemind.length){showToast('✅ تم إرسال كل الـ Reminders');return;}
+    const eng=toRemind[i];
+    const activeTasks=eng.tasks.filter(t=>t.status!=='done'&&!t.archived);
+    const taskLine=activeTasks.map(t=>t.name).join(', ');
+    const msg=`Hi ${eng.name}, please send your daily progress update for: ${taskLine}. Thanks 🙏`;
+    window.open(`https://wa.me/${eng.phone}?text=${encodeURIComponent(msg)}`,'_blank');
+    i++;
+    if(i<toRemind.length){
+      showToast(`📱 ${i}/${toRemind.length} — اضغط مرة تانية للي جاي`);
+      setTimeout(()=>{
+        if(confirm(`تبعت لـ ${eng.name}؟\nاضغط OK للي جاي: ${toRemind[i].name}`)) sendNext();
+      },1000);
+    }else{
+      showToast('✅ تم إرسال كل الـ Reminders');
+    }
+  }
+  if(confirm(`هتبعت Reminder لـ ${toRemind.length} مهندسين:\n${toRemind.map(e=>e.name).join('\n')}\n\nتكمل؟`)) sendNext();
+}
+
 function sendWhatsApp(engId){
   const eng=engineers.find(e=>e.id===engId);
   if(!eng||!eng.phone)return;
@@ -436,6 +533,7 @@ function fillCurrentPct(){
 function clearFilters(){
   document.getElementById('filter-eng').value='';
   document.getElementById('filter-date').value='';
+  document.getElementById('filter-search').value='';
   renderUpdates();
 }
 
@@ -453,39 +551,7 @@ function checkMissingUpdates(){
   }
 }
 
-function renderEngineers(){
-  const el=document.getElementById('eng-list');
-  if(!engineers.length){el.innerHTML='<div class="empty">لسه مفيش مهندسين — اضغط "مهندس جديد"</div>';return}
-  el.innerHTML=engineers.map(eng=>`
-    <div class="eng-row">
-      <div class="eng-header">
-        <div class="avatar" style="background:${eng.color.bg};color:${eng.color.tx}">${eng.name.slice(0,2)}</div>
-        <div style="flex:1"><div class="eng-name">${eng.name}</div><div class="eng-role">${eng.role||'—'}</div></div>
-        <div style="display:flex;gap:6px">
-          ${eng.phone?`<button class="btn btn-sm" style="background:#25D366;color:#fff;border-color:#25D366" onclick="sendWhatsApp('${eng.id}')">📱 Remind</button>`:''}
-          <button class="btn btn-sm" onclick="addTask('${eng.id}')">+ تاسك</button>
-          <button class="icon-btn" title="تعديل" onclick="editEng('${eng.id}')">✏️</button>
-          <button class="icon-btn" title="حذف" onclick="deleteEng('${eng.id}')">✕</button>
-        </div>
-      </div>
-      ${eng.tasks.length?eng.tasks.map(t=>`
-        <div class="task-row">
-          <div style="flex:1">
-            <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
-              <span class="task-name">${t.name}</span>
-              <span class="badge badge-${t.status}">${statusLabel[t.status]}</span>
-            </div>
-            <div style="display:flex;align-items:center;gap:8px">
-              <div class="progress-bar" style="flex:1"><div class="progress-fill" style="width:${t.pct}%;background:${progressColor(t.status)}"></div></div>
-              <span class="pct">${t.pct}%</span>
-              <span class="deadline">${t.deadline||''}</span>
-              <button class="icon-btn" title="تعديل التاسك" onclick="editTask('${eng.id}','${t.id}')">✏️</button>
-              <button class="icon-btn" title="حذف" onclick="deleteTask('${eng.id}','${t.id}')">✕</button>
-            </div>
-          </div>
-        </div>`).join(''):'<div style="font-size:13px;color:var(--text-muted);padding-top:8px">لسه مفيش تاسكات</div>'}
-    </div>`).join('');
-}
+function renderEngineers(){renderDash();}
 
 // ---- UPDATES ----
 function saveUpdate(){
@@ -560,6 +626,62 @@ function copyProgressReport(){
   });
 }
 
+function showWeeklyReport(){
+  const now=new Date();
+  const weekAgo=new Date(now-7*24*60*60*1000);
+  const weekUpdates=updates.filter(u=>{
+    if(!u.isoDate)return false;
+    return new Date(u.isoDate)>=weekAgo;
+  });
+  const from=weekAgo.toLocaleDateString('ar-EG',{day:'numeric',month:'long'});
+  const to=now.toLocaleDateString('ar-EG',{day:'numeric',month:'long',year:'numeric'});
+  const statusAr={'on-track':'On Track','at-risk':'At Risk','late':'Late','done':'Done'};
+
+  let report=`SUSTRA — Weekly Progress Report\n`;
+  report+=`الفترة: ${from} → ${to}\n`;
+  report+=`${'═'.repeat(45)}\n\n`;
+
+  engineers.forEach(eng=>{
+    const engUpdates=weekUpdates.filter(u=>u.engId===eng.id);
+    const activeTasks=eng.tasks.filter(t=>!t.archived);
+    report+=`👤 ${eng.name}${eng.role?' ('+eng.role+')':''}\n`;
+    report+=`   التحديثات هذا الأسبوع: ${engUpdates.length}\n`;
+
+    if(activeTasks.length){
+      activeTasks.forEach(t=>{
+        const taskUpds=engUpdates.filter(u=>u.taskName===t.name);
+        report+=`\n   📋 ${t.name}\n`;
+        report+=`      الحالة: ${statusAr[t.status]||t.status} | الإنجاز: ${t.pct}%${t.deadline?' | الديدلاين: '+t.deadline:''}\n`;
+        if(taskUpds.length){
+          report+=`      التحديثات (${taskUpds.length}):\n`;
+          taskUpds.forEach(u=>{
+            report+=`      • ${u.date}: ${u.text}\n`;
+            if(u.note) report+=`        ملاحظة: ${u.note}\n`;
+          });
+        }else{
+          report+=`      لا يوجد تحديثات هذا الأسبوع\n`;
+        }
+      });
+    }else{
+      report+=`   لا يوجد تاسكات نشطة\n`;
+    }
+    report+=`\n${'─'.repeat(45)}\n\n`;
+  });
+
+  report+=`Generated by SUSTRA Task Tracker`;
+  document.getElementById('weekly-report-content').textContent=report;
+  window._weeklyReportText=report;
+  document.getElementById('modal-weekly').style.display='flex';
+}
+
+function copyWeeklyReport(){
+  navigator.clipboard.writeText(window._weeklyReportText||'').then(()=>{
+    const btn=event.target;
+    btn.textContent='✅ تم النسخ';
+    setTimeout(()=>btn.textContent='📋 نسخ التقرير',2000);
+  });
+}
+
 function renderUpdates(){
   const fEng=document.getElementById('filter-eng');
   if(fEng&&!fEng.querySelector('option[value="'+fEng.value+'"]')){
@@ -573,9 +695,11 @@ function renderUpdates(){
   }
   const filterEngVal=document.getElementById('filter-eng')?.value||'';
   const filterDate=document.getElementById('filter-date')?.value||'';
+  const filterSearch=(document.getElementById('filter-search')?.value||'').toLowerCase();
   const filtered=updates.filter(u=>{
     if(filterEngVal&&u.engId!==filterEngVal)return false;
     if(filterDate&&u.isoDate&&u.isoDate!==filterDate)return false;
+    if(filterSearch&&!(u.text.toLowerCase().includes(filterSearch)||u.engName.toLowerCase().includes(filterSearch)||(u.taskName||'').toLowerCase().includes(filterSearch)||(u.note||'').toLowerCase().includes(filterSearch)))return false;
     return true;
   });
   const el=document.getElementById('updates-list');
@@ -601,32 +725,83 @@ function renderUpdates(){
 // ---- DASHBOARD ----
 function renderDash(){
   const total=engineers.length;
-  const totalT=engineers.reduce((a,e)=>a+e.tasks.length,0);
+  const totalT=engineers.reduce((a,e)=>a+e.tasks.filter(t=>!t.archived).length,0);
   const done=engineers.reduce((a,e)=>a+e.tasks.filter(t=>t.status==='done').length,0);
-  const late=engineers.reduce((a,e)=>a+e.tasks.filter(t=>t.status==='late').length,0);
+  const late=engineers.reduce((a,e)=>a+e.tasks.filter(t=>t.status==='late'&&!t.archived).length,0);
   document.getElementById('stat-cards').innerHTML=`
     <div class="card"><div class="stat-label">👥 المهندسين</div><div class="stat-num">${total}</div></div>
     <div class="card"><div class="stat-label">📋 التاسكات</div><div class="stat-num">${totalT}</div></div>
     <div class="card"><div class="stat-label" style="color:var(--success-tx)">✅ خلصت</div><div class="stat-num" style="color:var(--success-tx)">${done}</div></div>
     <div class="card"><div class="stat-label" style="color:var(--danger-tx)">⚠️ متأخرة</div><div class="stat-num" style="color:var(--danger-tx)">${late}</div></div>
   `;
+  checkMissingUpdates();
   const list=document.getElementById('dash-list');
-  if(!engineers.length){list.innerHTML='<div class="empty">ابدأ بإضافة مهندسين من تاب "الفريق"</div>';return}
-  list.innerHTML='<div class="eng-list">'+engineers.map(eng=>{
-    const d=eng.tasks.filter(t=>t.status==='done').length;
-    const avg=eng.tasks.length?Math.round(eng.tasks.reduce((a,t)=>a+t.pct,0)/eng.tasks.length):0;
-    const lateT=eng.tasks.filter(t=>t.status==='late');
-    return`<div class="eng-row">
+  if(!engineers.length){list.innerHTML='<div class="empty">اضغط "+ مهندس جديد" للبدء</div>';return}
+
+  function deadlineBadge(deadline,status){
+    if(!deadline||status==='done')return '';
+    const d=Math.ceil((new Date(deadline)-new Date())/(1000*60*60*24));
+    if(d<0)return `<span style="font-size:11px;background:#FCEBEB;color:#A32D2D;padding:1px 6px;border-radius:8px;font-weight:500">متأخر ${Math.abs(d)} يوم</span>`;
+    if(d<=2)return `<span style="font-size:11px;background:#FCEBEB;color:#A32D2D;padding:1px 6px;border-radius:8px;font-weight:500">⚠️ ${d} يوم</span>`;
+    if(d<=5)return `<span style="font-size:11px;background:#FAEEDA;color:#854F0B;padding:1px 6px;border-radius:8px;font-weight:500">${d} يوم</span>`;
+    return `<span style="font-size:11px;color:var(--text-muted)">${deadline}</span>`;
+  }
+
+  list.innerHTML=engineers.map(eng=>{
+    const activeTasks=eng.tasks.filter(t=>!t.archived);
+    const doneCount=eng.tasks.filter(t=>t.status==='done').length;
+    const avg=activeTasks.length?Math.round(activeTasks.reduce((a,t)=>a+t.pct,0)/activeTasks.length):0;
+    const lateT=activeTasks.filter(t=>t.status==='late');
+    const urgentT=activeTasks.filter(t=>{
+      if(!t.deadline||t.status==='done')return false;
+      const d=Math.ceil((new Date(t.deadline)-new Date())/(1000*60*60*24));
+      return d<=2&&d>=0;
+    });
+    const isAlert=lateT.length>0||urgentT.length>0;
+    return`<div class="eng-row" style="${isAlert?'border-color:#E24B4A;border-width:1px':''}">
       <div class="eng-header">
         <div class="avatar" style="background:${eng.color.bg};color:${eng.color.tx}">${eng.name.slice(0,2)}</div>
-        <div style="flex:1"><div class="eng-name">${eng.name}</div><div class="eng-role">${eng.role||''} · ${eng.tasks.length} تاسك · ${d} خلصوا</div></div>
-        <button class="btn btn-sm" onclick="showProgressReport('${eng.id}')" style="margin-left:8px">📋 تقرير</button>
-        <span style="font-size:16px;font-weight:500;margin-right:8px">${avg}%</span>
+        <div style="flex:1">
+          <div class="eng-name">${eng.name}</div>
+          <div class="eng-role">${eng.role||''} · ${activeTasks.length} تاسك · ${doneCount} خلصوا · ${avg}%</div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          ${eng.phone?`<button class="icon-btn" title="Remind" onclick="sendWhatsApp('${eng.id}')" style="background:#25D366;color:#fff;border-color:#25D366">📱</button>`:''}
+          <button class="btn btn-sm" onclick="showProgressReport('${eng.id}')">📋</button>
+          <button class="btn btn-sm" onclick="addTask('${eng.id}')">+ تاسك</button>
+          <button class="icon-btn" onclick="editEng('${eng.id}')">✏️</button>
+        </div>
       </div>
-      <div class="progress-bar"><div class="progress-fill" style="width:${avg}%;background:${lateT.length?'#E24B4A':'#1D9E75'}"></div></div>
-      ${lateT.length?`<div style="font-size:12px;color:var(--danger-tx);margin-top:6px">⚠️ متأخر: ${lateT.map(t=>t.name).join(', ')}</div>`:''}
+      <div class="progress-bar" style="margin-bottom:${activeTasks.length?'8px':'0'}"><div class="progress-fill" style="width:${avg}%;background:${isAlert?'#E24B4A':'#1D9E75'}"></div></div>
+      ${activeTasks.map(t=>`
+        <div class="task-row">
+          <div style="flex:1">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap">
+              <span class="task-name">${t.name}</span>
+              <span class="badge badge-${t.status}">${statusLabel[t.status]}</span>
+              ${deadlineBadge(t.deadline,t.status)}
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div class="progress-bar" style="flex:1"><div class="progress-fill" style="width:${t.pct}%;background:${progressColor(t.status)}"></div></div>
+              <span class="pct">${t.pct}%</span>
+              <button class="btn btn-sm" onclick="quickUpdate('${eng.id}','${t.id}')" style="font-size:11px;padding:3px 8px">+ Update</button>
+              <button class="icon-btn" title="هيستوري" onclick="showTaskHistory('${t.id}')">🕐</button>
+              <button class="icon-btn" title="أرشيف" onclick="archiveTask('${eng.id}','${t.id}')">📦</button>
+              <button class="icon-btn" title="تعديل" onclick="editTask('${eng.id}','${t.id}')">✏️</button>
+              <button class="icon-btn" title="حذف" onclick="deleteTask('${eng.id}','${t.id}')">✕</button>
+            </div>
+          </div>
+        </div>`).join('')}
+      ${eng.tasks.filter(t=>t.archived).length?`
+        <div style="margin-top:6px;padding-top:6px;border-top:0.5px dashed var(--border)">
+          <span style="font-size:11px;color:var(--text-muted)">📦 أرشيف (${eng.tasks.filter(t=>t.archived).length})</span>
+          ${eng.tasks.filter(t=>t.archived).map(t=>`
+            <span style="font-size:12px;color:var(--text-muted);margin-right:8px">${t.name}
+              <button class="icon-btn" style="width:20px;height:20px;font-size:10px" onclick="unarchiveTask('${eng.id}','${t.id}')">↩️</button>
+            </span>`).join('')}
+        </div>`:''}
     </div>`;
-  }).join('')+'</div>';
+  }).join('');
 }
 
 // ---- PDF REVIEW ----
@@ -802,20 +977,40 @@ saveTask=async function(){
   if(!name)return;
   const eng=engineers.find(e=>e.id===currentEngId);
   if(!eng)return;
-  const taskData={name,deadline:document.getElementById('inp-task-deadline').value,status:document.getElementById('inp-task-status').value,pct:parseInt(document.getElementById('inp-task-pct').value)};
+  const newStatus=document.getElementById('inp-task-status').value;
+  const newPct=parseInt(document.getElementById('inp-task-pct').value);
+  const newDeadline=document.getElementById('inp-task-deadline').value;
+  const taskData={name,deadline:newDeadline,status:newStatus,pct:newPct};
   try{
     if(editTaskId){
-      await sbFetch('/rest/v1/tasks?id=eq.'+editTaskId,'PATCH',taskData);
       const t=eng.tasks.find(t=>t.id===editTaskId);
-      if(t)Object.assign(t,taskData);
+      await sbFetch('/rest/v1/tasks?id=eq.'+editTaskId,'PATCH',taskData);
+      // log history for changed fields
+      if(t){
+        const historyItems=[];
+        if(t.status!==newStatus) historyItems.push({id:uid(),task_id:editTaskId,engineer_id:currentEngId,field:'status',old_value:t.status,new_value:newStatus});
+        if(t.pct!==newPct) historyItems.push({id:uid(),task_id:editTaskId,engineer_id:currentEngId,field:'pct',old_value:String(t.pct),new_value:String(newPct)});
+        if(t.deadline!==newDeadline) historyItems.push({id:uid(),task_id:editTaskId,engineer_id:currentEngId,field:'deadline',old_value:t.deadline||'',new_value:newDeadline});
+        for(const h of historyItems) await sbFetch('/rest/v1/task_history','POST',h);
+        Object.assign(t,taskData);
+      }
       editTaskId=null;
     }else{
       const id=uid();
-      await sbFetch('/rest/v1/tasks','POST',{id,engineer_id:currentEngId,...taskData});
-      eng.tasks.push({id,...taskData});
+      await sbFetch('/rest/v1/tasks','POST',{id,engineer_id:currentEngId,...taskData,archived:false});
+      eng.tasks.push({id,...taskData,archived:false});
     }
     closeModal('task');renderEngineers();renderDash();
     showToast('✅ تم الحفظ');
+    // prompt archive if done
+    if(newStatus==='done'&&editTaskId===null){
+      const justSaved=eng.tasks.find(t=>t.name===name&&t.status==='done');
+      if(justSaved&&!justSaved.archived&&confirm(`✅ التاسك "${name}" خلص!\nعايز تأرشفه دلوقتي؟`)){
+        await sbFetch('/rest/v1/tasks?id=eq.'+justSaved.id,'PATCH',{archived:true});
+        justSaved.archived=true;
+        renderEngineers();renderDash();
+      }
+    }
   }catch(e){showToast('❌ '+e.message,true);}
 };
 
@@ -837,6 +1032,30 @@ deleteTask=async function(eId,tId){
     if(e)e.tasks=e.tasks.filter(t=>t.id!==tId);
     renderEngineers();renderDash();
     showToast('✅ تم الحذف');
+  }catch(e){showToast('❌ '+e.message,true);}
+};
+
+const _origArchiveTask=archiveTask;
+archiveTask=async function(eId,tId){
+  try{
+    await sbFetch('/rest/v1/tasks?id=eq.'+tId,'PATCH',{archived:true});
+    const e=engineers.find(x=>x.id===eId);
+    const t=e?e.tasks.find(t=>t.id===tId):null;
+    if(t){t.archived=true;}
+    renderEngineers();renderDash();
+    showToast('📦 تم الأرشفة');
+  }catch(e){showToast('❌ '+e.message,true);}
+};
+
+const _origUnarchiveTask=unarchiveTask;
+unarchiveTask=async function(eId,tId){
+  try{
+    await sbFetch('/rest/v1/tasks?id=eq.'+tId,'PATCH',{archived:false});
+    const e=engineers.find(x=>x.id===eId);
+    const t=e?e.tasks.find(t=>t.id===tId):null;
+    if(t){t.archived=false;}
+    renderEngineers();renderDash();
+    showToast('↩️ تم الاستعادة');
   }catch(e){showToast('❌ '+e.message,true);}
 };
 
