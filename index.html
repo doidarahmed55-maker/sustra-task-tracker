@@ -196,6 +196,18 @@ textarea.input{min-height:70px;resize:vertical}
     </div>
   </div>
 
+  <!-- TASK REMIND PICKER MODAL -->
+  <div id="modal-remind" class="modal-overlay" style="display:none">
+    <div class="modal" style="width:360px">
+      <div class="modal-title">📱 اختار التاسك اللي هتبعته</div>
+      <div id="remind-tasks-list" style="margin-bottom:12px"></div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeModal('remind')">إلغاء</button>
+        <button class="btn btn-primary" onclick="sendWhatsApp(window._remindEngId)">📱 بعت كل التاسكات</button>
+      </div>
+    </div>
+  </div>
+
   <!-- PDF REVIEW REMOVED -->
   <div id="sec-review" class="section" style="display:none!important">
     <div class="toolbar">
@@ -496,6 +508,34 @@ function remindAll(){
   if(confirm(`هتبعت Reminder لـ ${toRemind.length} مهندسين:\n${toRemind.map(e=>e.name).join('\n')}\n\nتكمل؟`)) sendNext();
 }
 
+function remindWithTask(engId){
+  const eng=engineers.find(e=>e.id===engId);
+  if(!eng||!eng.phone)return;
+  window._remindEngId=engId;
+  const activeTasks=eng.tasks.filter(t=>t.status!=='done'&&!t.archived);
+  if(!activeTasks.length){showToast('مفيش تاسكات شغالة');return;}
+  if(activeTasks.length===1){
+    sendTaskWhatsApp(engId,activeTasks[0].id);
+    return;
+  }
+  document.getElementById('remind-tasks-list').innerHTML=activeTasks.map(t=>`
+    <button onclick="sendTaskWhatsApp('${engId}','${t.id}');closeModal('remind')"
+      style="display:block;width:100%;text-align:right;padding:10px 14px;margin-bottom:6px;border:0.5px solid var(--border);border-radius:8px;background:var(--surface-1);cursor:pointer;font-size:13px;font-family:inherit">
+      <div style="font-weight:500">${t.name}</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${statusLabel[t.status]} · ${t.pct}%</div>
+    </button>`).join('');
+  document.getElementById('modal-remind').style.display='flex';
+}
+
+function sendTaskWhatsApp(engId,taskId){
+  const eng=engineers.find(e=>e.id===engId);
+  if(!eng||!eng.phone)return;
+  const task=eng.tasks.find(t=>t.id===taskId);
+  if(!task)return;
+  const msg=`Hi ${eng.name}, please send your daily progress update for:\n📋 ${task.name} (${task.pct}% complete)\nThanks 🙏`;
+  window.open(`https://wa.me/${eng.phone}?text=${encodeURIComponent(msg)}`,'_blank');
+}
+
 function sendWhatsApp(engId){
   const eng=engineers.find(e=>e.id===engId);
   if(!eng||!eng.phone)return;
@@ -766,10 +806,11 @@ function renderDash(){
           <div class="eng-role">${eng.role||''} · ${activeTasks.length} تاسك · ${doneCount} خلصوا · ${avg}%</div>
         </div>
         <div style="display:flex;gap:6px;align-items:center">
-          ${eng.phone?`<button class="icon-btn" title="Remind" onclick="sendWhatsApp('${eng.id}')" style="background:#25D366;color:#fff;border-color:#25D366">📱</button>`:''}
+          ${eng.phone?`<button class="icon-btn" title="Remind — اختار تاسك" onclick="remindWithTask('${eng.id}')" style="background:#25D366;color:#fff;border-color:#25D366">📱</button>`:''}
           <button class="btn btn-sm" onclick="showProgressReport('${eng.id}')">📋</button>
           <button class="btn btn-sm" onclick="addTask('${eng.id}')">+ تاسك</button>
           <button class="icon-btn" onclick="editEng('${eng.id}')">✏️</button>
+          <button class="icon-btn" title="حذف المهندس" onclick="deleteEng('${eng.id}')" style="color:var(--danger-tx)">🗑️</button>
         </div>
       </div>
       <div class="progress-bar" style="margin-bottom:${activeTasks.length?'8px':'0'}"><div class="progress-fill" style="width:${avg}%;background:${isAlert?'#E24B4A':'#1D9E75'}"></div></div>
@@ -785,6 +826,7 @@ function renderDash(){
               <div class="progress-bar" style="flex:1"><div class="progress-fill" style="width:${t.pct}%;background:${progressColor(t.status)}"></div></div>
               <span class="pct">${t.pct}%</span>
               <button class="btn btn-sm" onclick="quickUpdate('${eng.id}','${t.id}')" style="font-size:11px;padding:3px 8px">+ Update</button>
+              ${eng.phone?`<button class="icon-btn" title="بعت التاسك ده على واتساب" onclick="sendTaskWhatsApp('${eng.id}','${t.id}')" style="color:#25D366;border-color:#25D366">📱</button>`:''}
               <button class="icon-btn" title="هيستوري" onclick="showTaskHistory('${t.id}')">🕐</button>
               <button class="icon-btn" title="أرشيف" onclick="archiveTask('${eng.id}','${t.id}')">📦</button>
               <button class="icon-btn" title="تعديل" onclick="editTask('${eng.id}','${t.id}')">✏️</button>
