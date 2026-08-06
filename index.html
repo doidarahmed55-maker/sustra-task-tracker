@@ -663,209 +663,112 @@ function showProgressReport(engId){
 }
 
 function exportReportPDF(type){
-  const {jsPDF}=window.jspdf;
-  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-  const PW=210,PH=297,M=14;
-  const BLUE=[24,95,165],BLUE_L=[230,241,251],GRAY=[95,94,90],DARK=[26,26,24];
   const isWeekly=type==='weekly';
   const text=isWeekly?(window._weeklyReportText||''):(window._progressReportText||'');
-  const filename=isWeekly?'SUSTRA_Weekly_Report.pdf':'SUSTRA_Progress_Report.pdf';
-  const today=new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+  const engName=window._currentReportEng||'';
+  const today=new Date().toLocaleDateString('ar-EG',{day:'numeric',month:'long',year:'numeric'});
+  const statusAr={'On Track':'on-track','At Risk':'at-risk','Late':'late','Done':'done'};
 
-  // ── HEADER BAR
-  doc.setFillColor(...BLUE);
-  doc.rect(0,0,PW,18,'F');
-  doc.setTextColor(255,255,255);
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(13);
-  doc.text('SUSTRA',M,11);
-  doc.setFont('helvetica','normal');
-  doc.setFontSize(9);
-  doc.text('Task Tracker  |  '+(isWeekly?'Weekly Progress Report':'Engineer Progress Report'),M+32,11);
-  doc.setFontSize(8);
-  doc.text(today,PW-M,11,'right');
-
-  // ── WATERMARK
-  doc.saveGraphicsState();
-  doc.setGState(new doc.GState({opacity:0.05}));
-  doc.setTextColor(...BLUE);
-  doc.setFontSize(60);
-  doc.setFont('helvetica','bold');
-  doc.text('SUSTRA',PW/2,PH/2,'center',{angle:30});
-  doc.restoreGraphicsState();
-
-  // ── META BAR
-  doc.setFillColor(...BLUE_L);
-  doc.rect(0,18,PW,10,'F');
-  doc.setTextColor(...DARK);
-  doc.setFont('helvetica','normal');
-  doc.setFontSize(8);
-
-  // parse engineer name from stored meta
-  const eng=window._currentReportEng||'';
-  const metaItems=isWeekly
-    ?[['Type','Weekly Report'],['Period','Last 7 Days'],['Date',today],['By','Ahmed M. Mostafa']]
-    :[[' Engineer',eng||'—'],['Date',today],['Status','Progress Report'],['By','Ahmed M. Mostafa']];
-  const cw=(PW-2*M)/metaItems.length;
-  metaItems.forEach(([label,val],i)=>{
-    const x=M+i*cw;
-    doc.setFont('helvetica','bold');
-    doc.setTextColor(...BLUE);
-    doc.setFontSize(6.5);
-    doc.text(label.toUpperCase(),x,23);
-    doc.setFont('helvetica','normal');
-    doc.setTextColor(...DARK);
-    doc.setFontSize(8);
-    doc.text(val,x,27);
-  });
-
-  // ── LINE
-  doc.setDrawColor(...BLUE);
-  doc.setLineWidth(0.4);
-  doc.line(M,29,PW-M,29);
-
-  // ── CONTENT
-  let y=37;
-  const lines=text.split('\n');
-  const statusColors={'On Track':[15,110,86],'At Risk':[133,79,11],'Late':[163,45,45],'Done':[24,95,165]};
-
-  lines.forEach(line=>{
-    if(y>PH-22){
-      doc.addPage();
-      // repeat header on new page
-      doc.setFillColor(...BLUE);
-      doc.rect(0,0,PW,12,'F');
-      doc.setTextColor(255,255,255);
-      doc.setFont('helvetica','bold');
-      doc.setFontSize(9);
-      doc.text('SUSTRA — '+(isWeekly?'Weekly Report':'Progress Report'),M,8);
-      doc.setFont('helvetica','normal');
-      doc.text(today,PW-M,8,'right');
-      y=20;
-    }
-
-    const trimmed=line.trim();
-
-    // Skip empty separator lines (─ ═)
-    if(/^[─═]+$/.test(trimmed)){
-      doc.setDrawColor(...BLUE_L);
-      doc.setLineWidth(0.3);
-      doc.line(M,y,PW-M,y);
-      y+=4;
-      return;
-    }
-
-    if(!trimmed){y+=3;return;}
-
-    // Engineer name line (👤)
-    if(trimmed.startsWith('👤')||trimmed.startsWith('SUSTRA')){
-      doc.setFillColor(...BLUE_L);
-      doc.roundedRect(M,y-4,PW-2*M,8,1,1,'F');
-      doc.setFont('helvetica','bold');
-      doc.setFontSize(10);
-      doc.setTextColor(...BLUE);
-      doc.text(trimmed.replace('👤','').trim(),M+3,y+0.5);
-      y+=11;
-      return;
-    }
-
-    // Task line (📋)
-    if(trimmed.startsWith('📋')){
-      doc.setFont('helvetica','bold');
-      doc.setFontSize(9);
-      doc.setTextColor(...DARK);
-      doc.text('▸ '+trimmed.replace('📋','').trim(),M+4,y);
-      y+=5;
-      return;
-    }
-
-    // Status/Progress line
-    if(trimmed.startsWith('الحالة:')||trimmed.startsWith('الإنجاز:')||trimmed.includes('|')){
-      // draw progress bar if has %
-      const pctMatch=trimmed.match(/الإنجاز:\s*(\d+)%/);
-      if(pctMatch){
-        const pct=parseInt(pctMatch[1]);
-        const bw=60,bx=M+8;
-        doc.setFillColor(220,220,220);
-        doc.roundedRect(bx,y-2.5,bw,3,1.5,1.5,'F');
-        const barColor=pct>=70?[15,110,86]:pct>=40?[133,79,11]:[163,45,45];
-        doc.setFillColor(...barColor);
-        doc.roundedRect(bx,y-2.5,bw*pct/100,3,1.5,1.5,'F');
-        doc.setFont('helvetica','bold');
-        doc.setFontSize(7.5);
-        doc.setTextColor(...barColor);
-        doc.text(`${pct}%`,bx+bw+2,y);
-        doc.setFont('helvetica','normal');
-        doc.setFontSize(7.5);
-        doc.setTextColor(...GRAY);
-        doc.text(trimmed.replace(/الإنجاز:\s*\d+%/,'').replace(/\|/g,'·').trim(),bx+bw+14,y);
-        y+=6;
-        return;
+  // Convert plain text report to styled HTML
+  function textToHTML(txt){
+    return txt.split('\n').map(line=>{
+      const t=line.trim();
+      if(!t) return '<div style="height:6px"></div>';
+      if(/^[─═]+$/.test(t)) return '<hr style="border:none;border-top:1px solid #e0deda;margin:6px 0">';
+      if(t.startsWith('SUSTRA')) return `<div style="font-size:15px;font-weight:700;color:#185FA5;padding:8px 10px;background:#E6F1FB;border-radius:6px;margin-bottom:4px">${t}</div>`;
+      if(t.startsWith('👤')) return `<div style="font-size:13px;font-weight:700;color:#185FA5;margin-top:12px;margin-bottom:4px">${t}</div>`;
+      if(t.startsWith('📋')){
+        const name=t.replace('📋','').trim();
+        return `<div style="font-size:12px;font-weight:600;color:#1a1a18;margin:8px 0 2px 8px">▸ ${name}</div>`;
       }
-      doc.setFont('helvetica','normal');
-      doc.setFontSize(8);
-      doc.setTextColor(...GRAY);
-      doc.text(trimmed,M+8,y);
-      y+=4.5;
-      return;
-    }
-
-    // Update lines (•)
-    if(trimmed.startsWith('•')){
-      doc.setFont('helvetica','normal');
-      doc.setFontSize(8);
-      doc.setTextColor(...DARK);
-      const wrapped=doc.splitTextToSize(trimmed,PW-2*M-12);
-      wrapped.forEach((wl,i)=>{
-        if(i===0)doc.text(wl,M+8,y);
-        else doc.text(wl,M+10,y);
-        y+=4;
-      });
-      return;
-    }
-
-    // Note lines
-    if(trimmed.startsWith('ملاحظة:')){
-      doc.setFont('helvetica','oblique');
-      doc.setFontSize(7.5);
-      doc.setTextColor(...GRAY);
-      const wrapped=doc.splitTextToSize(trimmed,PW-2*M-12);
-      wrapped.forEach(wl=>{doc.text(wl,M+8,y);y+=3.8;});
-      return;
-    }
-
-    // Done tasks (✅)
-    if(trimmed.startsWith('✅')){
-      doc.setFont('helvetica','normal');
-      doc.setFontSize(8);
-      doc.setTextColor(15,110,86);
-      doc.text(trimmed,M+4,y);
-      y+=4.5;
-      return;
-    }
-
-    // Default
-    doc.setFont('helvetica','normal');
-    doc.setFontSize(8);
-    doc.setTextColor(...DARK);
-    const wrapped=doc.splitTextToSize(trimmed,PW-2*M);
-    wrapped.forEach(wl=>{doc.text(wl,M,y);y+=4;});
-  });
-
-  // ── FOOTER
-  const totalPages=doc.internal.getNumberOfPages();
-  for(let i=1;i<=totalPages;i++){
-    doc.setPage(i);
-    doc.setFillColor(...BLUE);
-    doc.rect(0,PH-8,PW,8,'F');
-    doc.setTextColor(255,255,255);
-    doc.setFont('helvetica','normal');
-    doc.setFontSize(6.5);
-    doc.text('SUSTRA Task Tracker  |  Confidential – Internal Use Only  |  © 2026',PW/2,PH-3,'center');
-    doc.text(`${i} / ${totalPages}`,PW-M,PH-3,'right');
+      if(t.includes('الإنجاز:')){
+        const pctMatch=t.match(/الإنجاز:\s*(\d+)%/);
+        const pct=pctMatch?parseInt(pctMatch[1]):0;
+        const color=pct>=70?'#0F6E56':pct>=40?'#854F0B':'#A32D2D';
+        const rest=t.replace(/الإنجاز:\s*\d+%/,'').replace(/\|/g,'·').trim();
+        return `<div style="margin:4px 0 4px 16px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+            <div style="flex:1;height:6px;background:#e0deda;border-radius:3px;overflow:hidden">
+              <div style="width:${pct}%;height:100%;background:${color};border-radius:3px"></div>
+            </div>
+            <span style="font-size:11px;font-weight:700;color:${color};min-width:30px">${pct}%</span>
+            <span style="font-size:10px;color:#5f5e5a">${rest}</span>
+          </div>
+        </div>`;
+      }
+      if(t.startsWith('الحالة:')||t.includes('·')||t.includes('|'))
+        return `<div style="font-size:10px;color:#5f5e5a;margin:2px 0 2px 16px">${t}</div>`;
+      if(t.startsWith('آخر تحديث'))
+        return `<div style="font-size:11px;color:#1a1a18;margin:3px 0 3px 16px">${t}</div>`;
+      if(t.startsWith('ملاحظة'))
+        return `<div style="font-size:10px;color:#854F0B;font-style:italic;margin:2px 0 2px 16px">${t}</div>`;
+      if(t.startsWith('•'))
+        return `<div style="font-size:11px;color:#1a1a18;margin:2px 0 2px 16px">${t}</div>`;
+      if(t.startsWith('✅'))
+        return `<div style="font-size:11px;color:#0F6E56;margin:2px 0 2px 8px">${t}</div>`;
+      if(t.startsWith('التاريخ:')||t.startsWith('الفترة:'))
+        return `<div style="font-size:11px;color:#5f5e5a;margin-bottom:6px">${t}</div>`;
+      return `<div style="font-size:11px;color:#1a1a18;margin:2px 0">${t}</div>`;
+    }).join('');
   }
 
-  doc.save(filename);
+  const html=`<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>${isWeekly?'SUSTRA Weekly Report':'SUSTRA Progress Report'}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Cairo',sans-serif;background:#fff;color:#1a1a18;direction:rtl}
+  .page{width:210mm;min-height:297mm;padding:0;position:relative}
+  .header{background:#185FA5;color:#fff;padding:14px 18px;display:flex;align-items:center;justify-content:space-between}
+  .logo{font-size:16px;font-weight:700;letter-spacing:-0.5px}
+  .logo-sub{font-size:9px;opacity:.85;margin-top:1px}
+  .header-title{font-size:10px;opacity:.9}
+  .header-date{font-size:9px;opacity:.8}
+  .meta{background:#E6F1FB;padding:8px 18px;display:flex;gap:24px;border-bottom:1px solid #c8c6c0}
+  .meta-item label{font-size:7px;font-weight:700;color:#185FA5;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:1px}
+  .meta-item span{font-size:9px;color:#1a1a18}
+  .divider{height:1px;background:#185FA5;margin:0 18px 0 18px;opacity:.3}
+  .content{padding:16px 18px 60px}
+  .watermark{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) rotate(30deg);font-size:72px;font-weight:700;color:#185FA5;opacity:.04;letter-spacing:4px;pointer-events:none;white-space:nowrap}
+  .footer{position:fixed;bottom:0;left:0;right:0;background:#185FA5;color:#fff;font-size:7px;padding:5px 18px;display:flex;justify-content:space-between;align-items:center}
+  @media print{
+    body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .no-print{display:none}
+    @page{margin:0;size:A4}
+  }
+  .print-btn{position:fixed;top:16px;right:16px;background:#185FA5;color:#fff;border:none;padding:10px 20px;border-radius:8px;font-size:13px;cursor:pointer;font-family:'Cairo',sans-serif;z-index:999}
+</style>
+</head>
+<body>
+<button class="print-btn no-print" onclick="window.print()">🖨️ طباعة / حفظ PDF</button>
+<div class="page">
+  <div class="watermark">SUSTRA</div>
+  <div class="header">
+    <div><div class="logo">SUSTRA</div><div class="logo-sub">Task Tracker</div></div>
+    <div class="header-title">${isWeekly?'Weekly Progress Report':'Engineer Progress Report'}</div>
+    <div class="header-date">${today}</div>
+  </div>
+  <div class="meta">
+    ${!isWeekly?`<div class="meta-item"><label>المهندس</label><span>${engName||'—'}</span></div>`:''}
+    <div class="meta-item"><label>التاريخ</label><span>${today}</span></div>
+    <div class="meta-item"><label>النوع</label><span>${isWeekly?'تقرير أسبوعي':'تقرير تقدم'}</span></div>
+    <div class="meta-item"><label>أعده</label><span>Ahmed M. Mostafa</span></div>
+  </div>
+  <div class="content">${textToHTML(text)}</div>
+  <div class="footer">
+    <span>SUSTRA Task Tracker — Confidential, Internal Use Only</span>
+    <span>© 2026</span>
+  </div>
+</div>
+</body>
+</html>`;
+
+  const win=window.open('','_blank','width=900,height=700');
+  win.document.write(html);
+  win.document.close();
 }
 
 function copyProgressReport(){
